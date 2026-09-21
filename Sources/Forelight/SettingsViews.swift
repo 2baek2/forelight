@@ -424,81 +424,6 @@ struct SettingsView: View {
                 Card {
                     IntensityControl(value: model.intensity, onChanged: onIntensityChanged)
                         .padding(12)
-                    CardDivider()
-                    CardRow(
-                        title: "Hide while moving",
-                        subtitle: "Clear the dimming while a window is dragged",
-                        systemImage: "hand.draw"
-                    ) {
-                        Toggle("", isOn: Binding(
-                            get: { model.hideWhileMoving },
-                            set: { value in onToggleMoving(value) }
-                        ))
-                        .labelsHidden()
-                        .toggleStyle(.switch)
-                        .controlSize(.small)
-                    }
-                }
-
-                VStack(alignment: .leading, spacing: 8) {
-                    SectionHeader(title: "Window movement")
-                    Card {
-                        SliderRow(
-                            title: "Fade animation",
-                            value: model.fadeDuration,
-                            range: 0...0.35,
-                            suffix: "s",
-                            onChanged: onFadeDurationChanged
-                        )
-                        CardDivider()
-                        SliderRow(
-                            title: "Restore delay",
-                            value: model.restoreDelay,
-                            range: 0...0.30,
-                            suffix: "s",
-                            onChanged: onRestoreDelayChanged
-                        )
-                    }
-                }
-
-                VStack(alignment: .leading, spacing: 8) {
-                    SectionHeader(title: "Cursor spotlight")
-                    Card {
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text("Include")
-                                .foregroundStyle(ForelightStyle.text)
-                            Picker("", selection: Binding(
-                                get: { model.spotlightMode },
-                                set: { mode in onSpotlightModeChanged(mode) }
-                            )) {
-                                ForEach(SpotlightMode.allCases) { mode in
-                                    Text(mode.label).tag(mode)
-                                }
-                            }
-                            .pickerStyle(.segmented)
-                            .labelsHidden()
-                            Text("Window keeps the focused window clear. Cursor lights the area around the pointer.")
-                                .font(.caption)
-                                .foregroundStyle(ForelightStyle.muted)
-                        }
-                        .padding(12)
-                        CardDivider()
-                        IntegerSliderRow(
-                            title: "Radius",
-                            value: model.spotlightRadius,
-                            range: ForelightSettings.spotlightRadiusRange,
-                            suffix: " pt",
-                            onChanged: onSpotlightRadiusChanged
-                        )
-                        CardDivider()
-                        IntegerSliderRow(
-                            title: "Soft edge",
-                            value: model.spotlightFeather,
-                            range: ForelightSettings.spotlightFeatherRange,
-                            suffix: " pt",
-                            onChanged: onSpotlightFeatherChanged
-                        )
-                    }
                 }
 
                 VStack(alignment: .leading, spacing: 8) {
@@ -581,6 +506,82 @@ struct SettingsView: View {
                         )
                     }
                 }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    SectionHeader(title: "Window movement")
+                    Card {
+                        CardRow(
+                            title: "Hide while moving",
+                            subtitle: "Clear the dimming while a window is dragged",
+                            systemImage: "hand.draw"
+                        ) {
+                            Toggle("", isOn: Binding(
+                                get: { model.hideWhileMoving },
+                                set: { value in onToggleMoving(value) }
+                            ))
+                            .labelsHidden()
+                            .toggleStyle(.switch)
+                            .controlSize(.small)
+                        }
+                        CardDivider()
+                        SliderRow(
+                            title: "Fade animation",
+                            value: model.fadeDuration,
+                            range: 0...0.35,
+                            suffix: "s",
+                            onChanged: onFadeDurationChanged
+                        )
+                        CardDivider()
+                        SliderRow(
+                            title: "Restore delay",
+                            value: model.restoreDelay,
+                            range: 0...0.30,
+                            suffix: "s",
+                            onChanged: onRestoreDelayChanged
+                        )
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    SectionHeader(title: "Cursor spotlight")
+                    Card {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Include")
+                                .foregroundStyle(ForelightStyle.text)
+                            Picker("", selection: Binding(
+                                get: { model.spotlightMode },
+                                set: { mode in onSpotlightModeChanged(mode) }
+                            )) {
+                                ForEach(SpotlightMode.allCases) { mode in
+                                    Text(mode.label).tag(mode)
+                                }
+                            }
+                            .pickerStyle(.segmented)
+                            .labelsHidden()
+                            Text("Window keeps the focused window clear. Cursor lights the area around the pointer.")
+                                .font(.caption)
+                                .foregroundStyle(ForelightStyle.muted)
+                        }
+                        .padding(12)
+                        CardDivider()
+                        IntegerSliderRow(
+                            title: "Radius",
+                            value: model.spotlightRadius,
+                            range: ForelightSettings.spotlightRadiusRange,
+                            suffix: " pt",
+                            onChanged: onSpotlightRadiusChanged
+                        )
+                        CardDivider()
+                        IntegerSliderRow(
+                            title: "Soft edge",
+                            value: model.spotlightFeather,
+                            range: ForelightSettings.spotlightFeatherRange,
+                            suffix: " pt",
+                            onChanged: onSpotlightFeatherChanged
+                        )
+                    }
+                }
+
             }
         case .exceptions:
             VStack(alignment: .leading, spacing: 12) {
