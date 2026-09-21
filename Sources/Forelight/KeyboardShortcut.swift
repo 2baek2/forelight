@@ -93,7 +93,7 @@ final class ShortcutRecorderView: NSView {
 
     override var acceptsFirstResponder: Bool { true }
     override var canBecomeKeyView: Bool { true }
-    override var intrinsicContentSize: NSSize { NSSize(width: 120, height: 22) }
+    override var intrinsicContentSize: NSSize { NSSize(width: 104, height: 22) }
 
     override func draw(_ dirtyRect: NSRect) {
         let box = bounds.insetBy(dx: 0.5, dy: 0.5)

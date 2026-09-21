@@ -734,35 +734,30 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 12) {
                 List(selection: $selectedGroupName) {
                     ForEach(model.focusGroups) { group in
-                        VStack(alignment: .leading, spacing: 6) {
-                            HStack(spacing: 10) {
-                                Image(systemName: model.activeGroupName == group.name ? "checkmark.circle.fill" : "square.stack.3d.up")
-                                    .foregroundStyle(model.activeGroupName == group.name ? ForelightStyle.green : ForelightStyle.muted2)
-                                    .frame(width: 20)
-                                Text(group.name)
-                                Spacer()
-                                Button("Apply") { onApplyGroup(group.name) }
-                                    .buttonStyle(.bordered)
-                                    .controlSize(.small)
-                            }
+                        HStack(spacing: 10) {
+                            Image(systemName: model.activeGroupName == group.name ? "checkmark.circle.fill" : "square.stack.3d.up")
+                                .foregroundStyle(model.activeGroupName == group.name ? ForelightStyle.green : ForelightStyle.muted2)
+                                .frame(width: 20)
+                            Text(group.name)
+                                .lineLimit(1)
+                                .truncationMode(.tail)
+                            Spacer(minLength: 12)
+                            ShortcutRecorder(
+                                combo: group.shortcut,
+                                onChange: { combo in onSetGroupShortcut(group.name, combo) },
+                                onRecordingChanged: onGroupShortcutRecordingChanged,
+                                onClear: { onSetGroupShortcut(group.name, nil) }
+                            )
+                            .frame(width: 104, height: 22)
+                            .layoutPriority(1)
+                            .help("Click and press keys to assign; press Delete to clear")
 
-                            HStack(spacing: 10) {
-                                Text("Shortcut")
-                                    .font(.caption)
-                                    .foregroundStyle(ForelightStyle.muted)
-                                    .frame(width: 64, alignment: .leading)
-                                ShortcutRecorder(
-                                    combo: group.shortcut,
-                                    onChange: { combo in onSetGroupShortcut(group.name, combo) },
-                                    onRecordingChanged: onGroupShortcutRecordingChanged,
-                                    onClear: { onSetGroupShortcut(group.name, nil) }
-                                )
-                                .frame(width: 120, height: 22)
-                                .help("Click and press keys to assign; press Delete to clear")
-                                Spacer()
-                            }
+                            Button("Apply") { onApplyGroup(group.name) }
+                                .buttonStyle(.bordered)
+                                .controlSize(.small)
+                                .fixedSize()
                         }
-                        .padding(.vertical, 4)
+                        .padding(.vertical, 2)
                         .tag(group.name)
                     }
                 }
