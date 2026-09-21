@@ -515,7 +515,7 @@ struct SettingsView: View {
                 }
                 .scrollContentBackground(.hidden)
                 .background(ForelightStyle.cardBackground)
-                .frame(minHeight: 320)
+                .frame(minHeight: 440)
                 .clipShape(RoundedRectangle(cornerRadius: ForelightStyle.cardCorner, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: ForelightStyle.cardCorner, style: .continuous)
@@ -596,7 +596,7 @@ struct SettingsView: View {
                 }
                 .scrollContentBackground(.hidden)
                 .background(ForelightStyle.cardBackground)
-                .frame(minHeight: 320)
+                .frame(minHeight: 440)
                 .clipShape(RoundedRectangle(cornerRadius: ForelightStyle.cardCorner, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: ForelightStyle.cardCorner, style: .continuous)
@@ -676,7 +676,7 @@ struct SettingsView: View {
                 }
                 .scrollContentBackground(.hidden)
                 .background(ForelightStyle.cardBackground)
-                .frame(minHeight: 320)
+                .frame(minHeight: 440)
                 .clipShape(RoundedRectangle(cornerRadius: ForelightStyle.cardCorner, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: ForelightStyle.cardCorner, style: .continuous)
@@ -738,10 +738,6 @@ struct SettingsView: View {
                                 )
                                 .frame(width: 120, height: 22)
                                 .help("Click and press keys to assign; press Delete to clear")
-
-                                Text("click, then press keys · ⌫ to clear")
-                                    .font(.caption)
-                                    .foregroundStyle(ForelightStyle.muted)
                                 Spacer()
                             }
                         }
@@ -751,7 +747,7 @@ struct SettingsView: View {
                 }
                 .scrollContentBackground(.hidden)
                 .background(ForelightStyle.cardBackground)
-                .frame(minHeight: 320)
+                .frame(minHeight: 440)
                 .clipShape(RoundedRectangle(cornerRadius: ForelightStyle.cardCorner, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: ForelightStyle.cardCorner, style: .continuous)
@@ -781,6 +777,10 @@ struct SettingsView: View {
                     .help("Remove the selected group")
 
                     Spacer()
+
+                    Text("Click a shortcut, then press keys · ⌫ to clear")
+                        .font(.caption)
+                        .foregroundStyle(ForelightStyle.muted)
                 }
                 .buttonStyle(.borderless)
                 .controlSize(.small)
