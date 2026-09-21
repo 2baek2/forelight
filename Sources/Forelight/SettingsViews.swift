@@ -134,6 +134,7 @@ struct SettingsView: View {
     let onToggleMoving: (Bool) -> Void
     let onFadeDurationChanged: (Double) -> Void
     let onRestoreDelayChanged: (Double) -> Void
+    let onAppearanceModeChanged: (AppearanceMode) -> Void
     let onSetException: (String, Bool) -> Void
     let onRemoveException: (String) -> Void
     let onAddException: () -> Void
@@ -202,6 +203,24 @@ struct SettingsView: View {
                     Text("⌥⌘F")
                         .font(.system(.body, design: .monospaced))
                         .foregroundStyle(ForelightStyle.muted)
+                }
+                CardDivider()
+                CardRow(
+                    title: "Appearance",
+                    subtitle: "Follow the system or force a mode",
+                    systemImage: "circle.lefthalf.filled"
+                ) {
+                    Picker("", selection: Binding(
+                        get: { model.appearanceMode },
+                        set: { mode in onAppearanceModeChanged(mode) }
+                    )) {
+                        ForEach(AppearanceMode.allCases) { mode in
+                            Text(mode.label).tag(mode)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .frame(width: 210)
                 }
             }
         case .focus:

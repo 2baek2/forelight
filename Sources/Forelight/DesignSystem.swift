@@ -1,6 +1,30 @@
 import AppKit
 import SwiftUI
 
+enum AppearanceMode: String, CaseIterable, Identifiable {
+    case system
+    case light
+    case dark
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .system: return "System"
+        case .light: return "Light"
+        case .dark: return "Dark"
+        }
+    }
+
+    var nsAppearance: NSAppearance? {
+        switch self {
+        case .system: return nil
+        case .light: return NSAppearance(named: .aqua)
+        case .dark: return NSAppearance(named: .darkAqua)
+        }
+    }
+}
+
 enum ForelightStyle {
     static let cardCorner: CGFloat = 10
 
@@ -14,18 +38,67 @@ enum ForelightStyle {
 
     static let accentSoft = accent.opacity(0.18)
 
-    // Surfaces, matching Vorssaint's popover and card styling.
-    static let windowBackground = Color(hex: 0x26262A)
-    static let cardBackground = Color.white.opacity(0.06)
-    static let cardBorder = Color.white.opacity(0.14)
-    static let hairline = Color.white.opacity(0.10)
+    // Surfaces follow Vorssaint's dark popover, with a matching light variant.
+    static let windowBackground = dynamic(
+        dark: 0x26262A,
+        light: 0xF5F5F7
+    )
 
-    static let text = Color.white.opacity(0.96)
-    static let muted = Color(hex: 0xEBEBF5).opacity(0.60)
-    static let muted2 = Color(hex: 0xEBEBF5).opacity(0.38)
+    static var windowNSColor: NSColor {
+        NSColor(name: nil) { appearance in
+            appearance.isDark
+                ? NSColor(hex: 0x26262A)
+                : NSColor(hex: 0xF5F5F7)
+        }
+    }
 
-    static var windowNSColor: NSColor { NSColor(hex: 0x26262A) }
-    static var darkAppearance: NSAppearance? { NSAppearance(named: .darkAqua) }
+    static let cardBackground = Color(nsColor: NSColor(name: nil) { appearance in
+        appearance.isDark
+            ? NSColor.white.withAlphaComponent(0.06)
+            : NSColor.black.withAlphaComponent(0.05)
+    })
+
+    static let cardBorder = Color(nsColor: NSColor(name: nil) { appearance in
+        appearance.isDark
+            ? NSColor.white.withAlphaComponent(0.14)
+            : NSColor.black.withAlphaComponent(0.12)
+    })
+
+    static let hairline = Color(nsColor: NSColor(name: nil) { appearance in
+        appearance.isDark
+            ? NSColor.white.withAlphaComponent(0.10)
+            : NSColor.black.withAlphaComponent(0.10)
+    })
+
+    static let text = Color(nsColor: NSColor(name: nil) { appearance in
+        appearance.isDark
+            ? NSColor.white.withAlphaComponent(0.96)
+            : NSColor.black.withAlphaComponent(0.90)
+    })
+
+    static let muted = Color(nsColor: NSColor(name: nil) { appearance in
+        appearance.isDark
+            ? NSColor(hex: 0xEBEBF5).withAlphaComponent(0.60)
+            : NSColor.black.withAlphaComponent(0.55)
+    })
+
+    static let muted2 = Color(nsColor: NSColor(name: nil) { appearance in
+        appearance.isDark
+            ? NSColor(hex: 0xEBEBF5).withAlphaComponent(0.38)
+            : NSColor.black.withAlphaComponent(0.35)
+    })
+
+    private static func dynamic(dark: UInt32, light: UInt32) -> Color {
+        Color(nsColor: NSColor(name: nil) { appearance in
+            appearance.isDark ? NSColor(hex: dark) : NSColor(hex: light)
+        })
+    }
+}
+
+extension NSAppearance {
+    var isDark: Bool {
+        bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+    }
 }
 
 extension Color {

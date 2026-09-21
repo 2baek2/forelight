@@ -8,6 +8,7 @@ enum ForelightSettings {
     static let hideWhileMovingKey = "hideWhileMoving"
     static let fadeDurationKey = "dragFadeDuration"
     static let restoreDelayKey = "dragRestoreDelay"
+    static let appearanceModeKey = "appearanceMode"
 }
 
 @MainActor

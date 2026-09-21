@@ -34,6 +34,7 @@ final class ForelightModel: ObservableObject {
     @Published var fadeDuration: Double
     @Published var restoreDelay: Double
     @Published var exceptions: [ExceptionEntry]
+    @Published var appearanceMode: AppearanceMode
 
     init(
         isEnabled: Bool,
@@ -44,7 +45,8 @@ final class ForelightModel: ObservableObject {
         hideWhileMoving: Bool,
         fadeDuration: Double,
         restoreDelay: Double,
-        exceptions: [ExceptionEntry]
+        exceptions: [ExceptionEntry],
+        appearanceMode: AppearanceMode
     ) {
         self.isEnabled = isEnabled
         self.currentApplicationName = currentApplicationName
@@ -55,5 +57,6 @@ final class ForelightModel: ObservableObject {
         self.fadeDuration = fadeDuration
         self.restoreDelay = restoreDelay
         self.exceptions = exceptions
+        self.appearanceMode = appearanceMode
     }
 }

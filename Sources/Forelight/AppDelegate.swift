@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var settingsWindow: NSWindow?
     private var settingsHostingController: NSHostingController<SettingsView>?
     private var enabled: Bool
+    private var appearanceMode: AppearanceMode
     private var activationObserver: NSObjectProtocol?
     private var terminationObserver: NSObjectProtocol?
     private var keyboardMonitors: [Any] = []
@@ -19,6 +20,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let controller = OverlayController()
         overlayController = controller
         enabled = UserDefaults.standard.object(forKey: ForelightSettings.enabledKey) as? Bool ?? true
+        appearanceMode = AppearanceMode(
+            rawValue: UserDefaults.standard.string(forKey: ForelightSettings.appearanceModeKey) ?? ""
+        ) ?? .dark
         model = ForelightModel(
             isEnabled: enabled,
             currentApplicationName: nil,
@@ -28,7 +32,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             hideWhileMoving: controller.hideWhileMoving,
             fadeDuration: controller.fadeDuration,
             restoreDelay: controller.restoreDelay,
-            exceptions: []
+            exceptions: [],
+            appearanceMode: appearanceMode
         )
         super.init()
     }
@@ -61,7 +66,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         statusItem.button?.sendAction(on: [.leftMouseUp])
         popover.behavior = .transient
         popover.animates = true
-        popover.appearance = ForelightStyle.darkAppearance
+        popover.appearance = appearanceMode.nsAppearance
         popover.contentViewController = NSHostingController(
             rootView: MenuPanelView(
                 model: model,
@@ -178,6 +183,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         model.hideWhileMoving = overlayController.hideWhileMoving
         model.fadeDuration = overlayController.fadeDuration
         model.restoreDelay = overlayController.restoreDelay
+        model.appearanceMode = appearanceMode
         model.exceptions = overlayController.exceptionStates
             .map { bundleID, isEnabled in
                 let info = AppInfoResolver.resolve(bundleID: bundleID)
@@ -233,11 +239,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         syncModel()
     }
 
+    private func setAppearanceMode(_ mode: AppearanceMode) {
+        appearanceMode = mode
+        UserDefaults.standard.set(mode.rawValue, forKey: ForelightSettings.appearanceModeKey)
+        popover.appearance = mode.nsAppearance
+        settingsWindow?.appearance = mode.nsAppearance
+        settingsWindow?.backgroundColor = ForelightStyle.windowNSColor
+        syncModel()
+    }
+
     private func setException(bundleID: String, enabled: Bool) {
         overlayController.setException(bundleID: bundleID, enabled: enabled)
         refreshUI()
     }
-
     private func removeException(bundleID: String) {
         overlayController.removeException(bundleID: bundleID)
         refreshUI()
@@ -273,7 +287,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             window.title = "Forelight Settings"
             window.minSize = NSSize(width: 720, height: 600)
             window.backgroundColor = ForelightStyle.windowNSColor
-            window.appearance = ForelightStyle.darkAppearance
+            window.appearance = appearanceMode.nsAppearance
             window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
             window.isReleasedWhenClosed = false
             window.delegate = self
@@ -289,6 +303,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                     onToggleMoving: { [weak self] value in self?.setHideWhileMoving(value) },
                     onFadeDurationChanged: { [weak self] value in self?.setFadeDuration(value) },
                     onRestoreDelayChanged: { [weak self] value in self?.setRestoreDelay(value) },
+                    onAppearanceModeChanged: { [weak self] mode in self?.setAppearanceMode(mode) },
                     onSetException: { [weak self] bundleID, enabled in self?.setException(bundleID: bundleID, enabled: enabled) },
                     onRemoveException: { [weak self] bundleID in self?.removeException(bundleID: bundleID) },
                     onAddException: { [weak self] in self?.addExceptionFromPanel() },
