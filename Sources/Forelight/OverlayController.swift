@@ -603,6 +603,9 @@ private final class OverlayWindow: NSWindow {
         fatalError("OverlayWindow does not support storyboard decoding")
     }
 
+    override var canBecomeKey: Bool { false }
+    override var canBecomeMain: Bool { false }
+
     func update(cutout: CGRect?, alpha: Double) {
         overlayView.cutout = cutout.map { convertToLocalCoordinates($0) }
         overlayView.alpha = alpha
@@ -654,7 +657,9 @@ private final class OverlayWindow: NSWindow {
     func restoreImmediately() {
         visibilityAnimationID += 1
         alphaValue = 1
-        orderFrontRegardless()
+        if !isVisible {
+            orderFrontRegardless()
+        }
     }
 
     private func convertToLocalCoordinates(_ globalFrame: CGRect) -> CGRect {

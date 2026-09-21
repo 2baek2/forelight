@@ -1,43 +1,13 @@
 import SwiftUI
 
 struct MenuPanelView: View {
-    let isEnabled: Bool
-    let currentApplicationName: String?
-    let currentApplicationIsExcluded: Bool
-    let intensity: Double
-    let hideWhileMoving: Bool
+    @ObservedObject var model: ForelightModel
     let onToggleEnabled: (Bool) -> Void
     let onIntensityChanged: (Double) -> Void
     let onToggleMoving: (Bool) -> Void
     let onToggleExclusion: () -> Void
     let onOpenSettings: () -> Void
     let onQuit: () -> Void
-
-    init(
-        isEnabled: Bool,
-        currentApplicationName: String?,
-        currentApplicationIsExcluded: Bool,
-        intensity: Double,
-        hideWhileMoving: Bool,
-        onToggleEnabled: @escaping (Bool) -> Void,
-        onIntensityChanged: @escaping (Double) -> Void,
-        onToggleMoving: @escaping (Bool) -> Void,
-        onToggleExclusion: @escaping () -> Void,
-        onOpenSettings: @escaping () -> Void,
-        onQuit: @escaping () -> Void
-    ) {
-        self.isEnabled = isEnabled
-        self.currentApplicationName = currentApplicationName
-        self.currentApplicationIsExcluded = currentApplicationIsExcluded
-        self.intensity = intensity
-        self.hideWhileMoving = hideWhileMoving
-        self.onToggleEnabled = onToggleEnabled
-        self.onIntensityChanged = onIntensityChanged
-        self.onToggleMoving = onToggleMoving
-        self.onToggleExclusion = onToggleExclusion
-        self.onOpenSettings = onOpenSettings
-        self.onQuit = onQuit
-    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -48,26 +18,32 @@ struct MenuPanelView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Forelight")
                         .font(.headline)
-                    Text(isEnabled ? "Focus mode is on" : "Focus mode is paused")
+                    Text(model.isEnabled ? "Focus mode is on" : "Focus mode is paused")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                Toggle("", isOn: Binding(get: { isEnabled }, set: { value in onToggleEnabled(value) }))
+                Toggle("", isOn: Binding(
+                    get: { model.isEnabled },
+                    set: { value in onToggleEnabled(value) }
+                ))
                     .labelsHidden()
             }
 
             Divider()
 
-            IntensityControl(value: intensity, onChanged: onIntensityChanged)
+            IntensityControl(value: model.intensity, onChanged: onIntensityChanged)
 
-            Toggle("Hide while moving a window", isOn: Binding(get: { hideWhileMoving }, set: { value in onToggleMoving(value) }))
+            Toggle("Hide while moving a window", isOn: Binding(
+                get: { model.hideWhileMoving },
+                set: { value in onToggleMoving(value) }
+            ))
 
-            if let currentApplicationName {
+            if let currentApplicationName = model.currentApplicationName {
                 Button(action: onToggleExclusion) {
                     Label(
-                        currentApplicationIsExcluded ? "Include " + currentApplicationName : "Exclude " + currentApplicationName,
-                        systemImage: currentApplicationIsExcluded ? "eye" : "eye.slash"
+                        model.currentApplicationIsExcluded ? "Include " + currentApplicationName : "Exclude " + currentApplicationName,
+                        systemImage: model.currentApplicationIsExcluded ? "eye" : "eye.slash"
                     )
                 }
                 .buttonStyle(.borderless)
@@ -88,7 +64,7 @@ struct MenuPanelView: View {
 }
 
 struct SettingsView: View {
-    private enum Section: String, CaseIterable, Identifiable {
+    enum Section: String, CaseIterable, Identifiable {
         case general = "General"
         case focus = "Focus"
         case exceptions = "Exceptions"
@@ -105,14 +81,7 @@ struct SettingsView: View {
         }
     }
 
-    let isEnabled: Bool
-    let currentApplicationName: String?
-    let currentApplicationIsExcluded: Bool
-    let accessibilityTrusted: Bool
-    let intensity: Double
-    let hideWhileMoving: Bool
-    let fadeDuration: Double
-    let restoreDelay: Double
+    @ObservedObject var model: ForelightModel
     let onToggleEnabled: (Bool) -> Void
     let onIntensityChanged: (Double) -> Void
     let onToggleMoving: (Bool) -> Void
@@ -122,48 +91,6 @@ struct SettingsView: View {
     let onOpenAccessibilitySettings: () -> Void
 
     @State private var selectedSection: Section = .general
-    @State private var enabledValue: Bool
-    @State private var hideWhileMovingValue: Bool
-    @State private var fadeDurationValue: Double
-    @State private var restoreDelayValue: Double
-
-    init(
-        isEnabled: Bool,
-        currentApplicationName: String?,
-        currentApplicationIsExcluded: Bool,
-        accessibilityTrusted: Bool,
-        intensity: Double,
-        hideWhileMoving: Bool,
-        fadeDuration: Double,
-        restoreDelay: Double,
-        onToggleEnabled: @escaping (Bool) -> Void,
-        onIntensityChanged: @escaping (Double) -> Void,
-        onToggleMoving: @escaping (Bool) -> Void,
-        onFadeDurationChanged: @escaping (Double) -> Void,
-        onRestoreDelayChanged: @escaping (Double) -> Void,
-        onToggleExclusion: @escaping () -> Void,
-        onOpenAccessibilitySettings: @escaping () -> Void
-    ) {
-        self.isEnabled = isEnabled
-        self.currentApplicationName = currentApplicationName
-        self.currentApplicationIsExcluded = currentApplicationIsExcluded
-        self.accessibilityTrusted = accessibilityTrusted
-        self.intensity = intensity
-        self.hideWhileMoving = hideWhileMoving
-        self.fadeDuration = fadeDuration
-        self.restoreDelay = restoreDelay
-        self.onToggleEnabled = onToggleEnabled
-        self.onIntensityChanged = onIntensityChanged
-        self.onToggleMoving = onToggleMoving
-        self.onFadeDurationChanged = onFadeDurationChanged
-        self.onRestoreDelayChanged = onRestoreDelayChanged
-        self.onToggleExclusion = onToggleExclusion
-        self.onOpenAccessibilitySettings = onOpenAccessibilitySettings
-        _enabledValue = State(initialValue: isEnabled)
-        _hideWhileMovingValue = State(initialValue: hideWhileMoving)
-        _fadeDurationValue = State(initialValue: fadeDuration)
-        _restoreDelayValue = State(initialValue: restoreDelay)
-    }
 
     var body: some View {
         HStack(spacing: 0) {
@@ -187,10 +114,6 @@ struct SettingsView: View {
             }
         }
         .frame(minWidth: 700, minHeight: 460)
-        .onChange(of: isEnabled) { newValue in enabledValue = newValue }
-        .onChange(of: hideWhileMoving) { newValue in hideWhileMovingValue = newValue }
-        .onChange(of: fadeDuration) { newValue in fadeDurationValue = newValue }
-        .onChange(of: restoreDelay) { newValue in restoreDelayValue = newValue }
     }
 
     @ViewBuilder
@@ -200,8 +123,8 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 18) {
                 GroupBox {
                     Toggle("Enable Forelight", isOn: Binding(
-                        get: { enabledValue },
-                        set: { value in enabledValue = value; onToggleEnabled(value) }
+                        get: { model.isEnabled },
+                        set: { value in onToggleEnabled(value) }
                     ))
                         .padding(8)
                 }
@@ -223,22 +146,20 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 18) {
                 GroupBox("Overlay") {
                     VStack(alignment: .leading, spacing: 12) {
-                        IntensityControl(value: intensity, onChanged: onIntensityChanged)
+                        IntensityControl(value: model.intensity, onChanged: onIntensityChanged)
                         Toggle("Hide while moving a window", isOn: Binding(
-                            get: { hideWhileMovingValue },
-                            set: { value in hideWhileMovingValue = value; onToggleMoving(value) }
+                            get: { model.hideWhileMoving },
+                            set: { value in onToggleMoving(value) }
                         ))
                     }
                     .padding(8)
                 }
                 GroupBox("Window movement") {
                     VStack(alignment: .leading, spacing: 12) {
-                        settingSlider(title: "Fade animation", value: fadeDurationValue, range: 0...0.35, suffix: "s") { value in
-                            fadeDurationValue = value
+                        settingSlider(title: "Fade animation", value: model.fadeDuration, range: 0...0.35, suffix: "s") { value in
                             onFadeDurationChanged(value)
                         }
-                        settingSlider(title: "Restore delay", value: restoreDelayValue, range: 0...0.30, suffix: "s") { value in
-                            restoreDelayValue = value
+                        settingSlider(title: "Restore delay", value: model.restoreDelay, range: 0...0.30, suffix: "s") { value in
                             onRestoreDelayChanged(value)
                         }
                     }
@@ -248,12 +169,12 @@ struct SettingsView: View {
         case .exceptions:
             GroupBox {
                 VStack(alignment: .leading, spacing: 12) {
-                    if let currentApplicationName {
+                    if let currentApplicationName = model.currentApplicationName {
                         Text(currentApplicationName)
                             .font(.headline)
-                        Text(currentApplicationIsExcluded ? "This app is excluded from dimming." : "This app is currently included in focus mode.")
+                        Text(model.currentApplicationIsExcluded ? "This app is excluded from dimming." : "This app is currently included in focus mode.")
                             .foregroundStyle(.secondary)
-                        Button(currentApplicationIsExcluded ? "Include App" : "Exclude App", action: onToggleExclusion)
+                        Button(model.currentApplicationIsExcluded ? "Include App" : "Exclude App", action: onToggleExclusion)
                     } else {
                         Text("No active application")
                             .foregroundStyle(.secondary)
@@ -268,9 +189,9 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 18) {
                 GroupBox("Accessibility") {
                     HStack {
-                        Image(systemName: accessibilityTrusted ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
-                            .foregroundStyle(accessibilityTrusted ? .green : .orange)
-                        Text(accessibilityTrusted ? "Permission granted" : "Permission required for precise window tracking")
+                        Image(systemName: model.accessibilityTrusted ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                            .foregroundStyle(model.accessibilityTrusted ? .green : .orange)
+                        Text(model.accessibilityTrusted ? "Permission granted" : "Permission required for precise window tracking")
                         Spacer()
                         Button("Open System Settings", action: onOpenAccessibilitySettings)
                     }

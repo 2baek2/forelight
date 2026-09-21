@@ -3,15 +3,33 @@ import SwiftUI
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
-    private let overlayController = OverlayController()
+    private let overlayController: OverlayController
+    private let model: ForelightModel
     private var statusItem: NSStatusItem!
     private var popover = NSPopover()
     private var settingsWindow: NSWindow?
     private var settingsHostingController: NSHostingController<SettingsView>?
-    private var enabled = UserDefaults.standard.object(forKey: ForelightSettings.enabledKey) as? Bool ?? true
+    private var enabled: Bool
     private var activationObserver: NSObjectProtocol?
     private var terminationObserver: NSObjectProtocol?
     private var keyboardMonitors: [Any] = []
+
+    override init() {
+        let controller = OverlayController()
+        overlayController = controller
+        enabled = UserDefaults.standard.object(forKey: ForelightSettings.enabledKey) as? Bool ?? true
+        model = ForelightModel(
+            isEnabled: enabled,
+            currentApplicationName: nil,
+            currentApplicationIsExcluded: false,
+            accessibilityTrusted: false,
+            intensity: controller.intensity,
+            hideWhileMoving: controller.hideWhileMoving,
+            fadeDuration: controller.fadeDuration,
+            restoreDelay: controller.restoreDelay
+        )
+        super.init()
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         configureStatusItem()
@@ -41,6 +59,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         statusItem.button?.sendAction(on: [.leftMouseUp])
         popover.behavior = .transient
         popover.animates = true
+        popover.contentViewController = NSHostingController(
+            rootView: MenuPanelView(
+                model: model,
+                onToggleEnabled: { [weak self] value in self?.setEnabled(value) },
+                onIntensityChanged: { [weak self] value in self?.setIntensity(value) },
+                onToggleMoving: { [weak self] value in self?.setHideWhileMoving(value) },
+                onToggleExclusion: { [weak self] in self?.toggleCurrentApplicationExclusion() },
+                onOpenSettings: { [weak self] in self?.presentSettings() },
+                onQuit: { NSApplication.shared.terminate(nil) }
+            )
+        )
     }
 
     private func configureNotifications() {
@@ -108,16 +137,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             return
         }
 
-        refreshPopover()
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
     }
 
     private func refreshUI() {
         updateStatusItem()
-        refreshPopover()
-        if settingsWindow?.isVisible == true {
-            updateSettingsContent()
-        }
+        syncModel()
+    }
+
+    private func syncModel() {
+        model.isEnabled = enabled
+        model.currentApplicationName = overlayController.currentApplicationName
+        model.currentApplicationIsExcluded = overlayController.currentApplicationIsExcluded
+        model.accessibilityTrusted = overlayController.accessibilityTrusted
+        model.intensity = overlayController.intensity
+        model.hideWhileMoving = overlayController.hideWhileMoving
+        model.fadeDuration = overlayController.fadeDuration
+        model.restoreDelay = overlayController.restoreDelay
     }
 
     private func updateStatusItem() {
@@ -130,24 +166,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         statusItem.button?.toolTip = enabled ? "Forelight · " + appName : "Forelight paused"
     }
 
-    private func refreshPopover() {
-        popover.contentViewController = NSHostingController(
-            rootView: MenuPanelView(
-                isEnabled: enabled,
-                currentApplicationName: overlayController.currentApplicationName,
-                currentApplicationIsExcluded: overlayController.currentApplicationIsExcluded,
-                intensity: overlayController.intensity,
-                hideWhileMoving: overlayController.hideWhileMoving,
-                onToggleEnabled: { [weak self] value in self?.setEnabled(value) },
-                onIntensityChanged: { [weak self] value in self?.setIntensity(value) },
-                onToggleMoving: { [weak self] value in self?.setHideWhileMoving(value) },
-                onToggleExclusion: { [weak self] in self?.toggleCurrentApplicationExclusion() },
-                onOpenSettings: { [weak self] in self?.presentSettings() },
-                onQuit: { NSApplication.shared.terminate(nil) }
-            )
-        )
-    }
-
     private func setEnabled(_ value: Bool) {
         enabled = value
         UserDefaults.standard.set(value, forKey: ForelightSettings.enabledKey)
@@ -157,11 +175,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     private func setIntensity(_ value: Double) {
         overlayController.setIntensity(value)
+        syncModel()
     }
 
     private func setHideWhileMoving(_ value: Bool) {
         overlayController.setHideWhileMoving(value)
-        refreshPopover()
+        syncModel()
     }
 
     private func toggleCurrentApplicationExclusion() {
@@ -171,10 +190,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     private func setFadeDuration(_ value: Double) {
         overlayController.setFadeDuration(value)
+        syncModel()
     }
 
     private func setRestoreDelay(_ value: Double) {
         overlayController.setRestoreDelay(value)
+        syncModel()
     }
 
     private func presentSettings(center: Bool = true) {
@@ -194,7 +215,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             settingsWindow = window
         }
 
-        updateSettingsContent()
+        if settingsHostingController == nil {
+            let hostingController = NSHostingController(
+                rootView: SettingsView(
+                    model: model,
+                    onToggleEnabled: { [weak self] value in self?.setEnabled(value) },
+                    onIntensityChanged: { [weak self] value in self?.setIntensity(value) },
+                    onToggleMoving: { [weak self] value in self?.setHideWhileMoving(value) },
+                    onFadeDurationChanged: { [weak self] value in self?.setFadeDuration(value) },
+                    onRestoreDelayChanged: { [weak self] value in self?.setRestoreDelay(value) },
+                    onToggleExclusion: { [weak self] in self?.toggleCurrentApplicationExclusion() },
+                    onOpenAccessibilitySettings: { [weak self] in self?.overlayController.openAccessibilitySettings() }
+                )
+            )
+            settingsHostingController = hostingController
+            settingsWindow?.contentViewController = hostingController
+        }
+
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
         if center {
@@ -202,36 +239,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         settingsWindow?.orderFrontRegardless()
         settingsWindow?.makeKeyAndOrderFront(nil)
-    }
-
-    private func updateSettingsContent() {
-        guard let settingsWindow else { return }
-
-        let content = SettingsView(
-            isEnabled: enabled,
-            currentApplicationName: overlayController.currentApplicationName,
-            currentApplicationIsExcluded: overlayController.currentApplicationIsExcluded,
-            accessibilityTrusted: overlayController.accessibilityTrusted,
-            intensity: overlayController.intensity,
-            hideWhileMoving: overlayController.hideWhileMoving,
-            fadeDuration: overlayController.fadeDuration,
-            restoreDelay: overlayController.restoreDelay,
-            onToggleEnabled: { [weak self] value in self?.setEnabled(value) },
-            onIntensityChanged: { [weak self] value in self?.setIntensity(value) },
-            onToggleMoving: { [weak self] value in self?.setHideWhileMoving(value) },
-            onFadeDurationChanged: { [weak self] value in self?.setFadeDuration(value) },
-            onRestoreDelayChanged: { [weak self] value in self?.setRestoreDelay(value) },
-            onToggleExclusion: { [weak self] in self?.toggleCurrentApplicationExclusion() },
-            onOpenAccessibilitySettings: { [weak self] in self?.overlayController.openAccessibilitySettings() }
-        )
-
-        if let settingsHostingController {
-            settingsHostingController.rootView = content
-        } else {
-            let hostingController = NSHostingController(rootView: content)
-            settingsHostingController = hostingController
-            settingsWindow.contentViewController = hostingController
-        }
     }
 
     func windowWillClose(_ notification: Notification) {
