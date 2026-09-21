@@ -152,6 +152,7 @@ struct SettingsView: View {
             .listStyle(.sidebar)
             .environment(\.defaultMinListRowHeight, 38)
             .frame(width: 200)
+            .frame(maxHeight: .infinity)
 
             Divider()
 
@@ -162,7 +163,7 @@ struct SettingsView: View {
                             .font(.title2.weight(.semibold))
                         Text(selectedSection.subtitle)
                             .font(.callout)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(ForelightStyle.muted)
                     }
                     detailView
                 }
@@ -170,7 +171,7 @@ struct SettingsView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        .frame(minWidth: 700, minHeight: 560)
+        .frame(minWidth: 700, minHeight: 600)
         .tint(ForelightStyle.accent)
     }
 
@@ -200,7 +201,7 @@ struct SettingsView: View {
                 ) {
                     Text("⌥⌘F")
                         .font(.system(.body, design: .monospaced))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(ForelightStyle.muted)
                 }
             }
         case .focus:
@@ -257,7 +258,7 @@ struct SettingsView: View {
                             } else {
                                 Image(systemName: "app.dashed")
                                     .frame(width: 20, height: 20)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(ForelightStyle.muted)
                             }
                             Text(entry.name)
                             Spacer()
@@ -284,7 +285,7 @@ struct SettingsView: View {
                 .overlay {
                     if model.exceptions.isEmpty {
                         Text("No apps are excluded yet. Use + to add one.")
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(ForelightStyle.muted)
                     }
                 }
 
@@ -319,7 +320,7 @@ struct SettingsView: View {
                             Text("Accessibility")
                             Text(model.accessibilityTrusted ? "Permission granted" : "Required for precise window tracking")
                                 .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(ForelightStyle.muted)
                         }
                         Spacer()
                         Button("Open System Settings", action: onOpenAccessibilitySettings)
@@ -330,7 +331,7 @@ struct SettingsView: View {
                 }
                 Text("Forelight keeps this permission at the app identity level, so rebuilding the app does not require adding it again.")
                     .font(.callout)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(ForelightStyle.muted)
             }
         }
     }
@@ -367,7 +368,7 @@ private struct IntensityControl: View {
                     .focused($textFieldFocused)
                     .onSubmit(commitTextValue)
                     Text("%")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(ForelightStyle.muted)
                 }
             }
 

@@ -4,31 +4,28 @@ import SwiftUI
 enum ForelightStyle {
     static let cardCorner: CGFloat = 10
 
-    // Vorssaint-inspired palette: periwinkle accent on a deep charcoal surface.
-    static let accent = Color(hex: 0x8A8CFF)
-    static let accentSoft = accent.opacity(0.16)
-    static let green = Color(hex: 0x46D07F)
-    static let orange = Color(hex: 0xF5A623)
-    static let pink = Color(hex: 0xFF7AB2)
+    // Vorssaint default palette (its :root values).
+    static let accent = Color(hex: 0x0A84FF)
+    static let green = Color(hex: 0x32D74B)
+    static let cyan = Color(hex: 0x64D2FF)
+    static let mint = Color(hex: 0x66D4CF)
+    static let orange = Color(hex: 0xFF9F0A)
+    static let pink = Color(hex: 0xFF375F)
 
-    static var windowNSColor: NSColor {
-        dynamicNSColor(dark: 0x121218, light: 0xEFEFF6)
-    }
+    static let accentSoft = accent.opacity(0.18)
 
-    static var cardBackground: Color {
-        Color(nsColor: dynamicNSColor(dark: 0x1B1B24, light: 0xFFFFFF))
-    }
+    // Surfaces, matching Vorssaint's popover and card styling.
+    static let windowBackground = Color(hex: 0x26262A)
+    static let cardBackground = Color.white.opacity(0.06)
+    static let cardBorder = Color.white.opacity(0.14)
+    static let hairline = Color.white.opacity(0.10)
 
-    static var cardBorder: Color {
-        accent.opacity(0.12)
-    }
+    static let text = Color.white.opacity(0.96)
+    static let muted = Color(hex: 0xEBEBF5).opacity(0.60)
+    static let muted2 = Color(hex: 0xEBEBF5).opacity(0.38)
 
-    private static func dynamicNSColor(dark: UInt32, light: UInt32) -> NSColor {
-        NSColor(name: nil) { appearance in
-            let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-            return NSColor(hex: isDark ? dark : light)
-        }
-    }
+    static var windowNSColor: NSColor { NSColor(hex: 0x26262A) }
+    static var darkAppearance: NSAppearance? { NSAppearance(named: .darkAqua) }
 }
 
 extension Color {
@@ -100,14 +97,15 @@ struct CardRow<Control: View>: View {
                 Image(systemName: systemImage)
                     .font(.system(size: 15))
                     .frame(width: 20)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(ForelightStyle.muted2)
             }
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
+                    .foregroundStyle(ForelightStyle.text)
                 if let subtitle {
                     Text(subtitle)
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(ForelightStyle.muted)
                 }
             }
             Spacer(minLength: 8)
@@ -120,7 +118,9 @@ struct CardRow<Control: View>: View {
 
 struct CardDivider: View {
     var body: some View {
-        Divider()
+        Rectangle()
+            .fill(ForelightStyle.hairline)
+            .frame(height: 1)
             .padding(.leading, 12)
     }
 }
@@ -136,11 +136,11 @@ struct StatusPill: View {
                 .frame(width: 6, height: 6)
             Text(text)
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(ForelightStyle.muted)
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 3)
-        .background(Capsule().fill(color.opacity(0.15)))
+        .background(Capsule().fill(color.opacity(0.18)))
     }
 }
 
@@ -150,7 +150,7 @@ struct SectionHeader: View {
     var body: some View {
         Text(title.uppercased())
             .font(.caption.weight(.semibold))
-            .foregroundStyle(.secondary)
+            .foregroundStyle(ForelightStyle.muted)
             .padding(.leading, 2)
     }
 }
@@ -166,10 +166,11 @@ struct SliderRow: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Text(title)
+                    .foregroundStyle(ForelightStyle.text)
                 Spacer()
                 Text(String(format: "%.2f%@", value, suffix))
                     .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(ForelightStyle.muted)
             }
             Slider(value: Binding(get: { value }, set: { onChanged($0) }), in: range)
         }

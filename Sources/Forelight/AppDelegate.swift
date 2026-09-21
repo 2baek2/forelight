@@ -61,6 +61,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         statusItem.button?.sendAction(on: [.leftMouseUp])
         popover.behavior = .transient
         popover.animates = true
+        popover.appearance = ForelightStyle.darkAppearance
         popover.contentViewController = NSHostingController(
             rootView: MenuPanelView(
                 model: model,
@@ -264,14 +265,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private func presentSettings(center: Bool = true) {
         if settingsWindow == nil {
             let window = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 780, height: 640),
+                contentRect: NSRect(x: 0, y: 0, width: 780, height: 680),
                 styleMask: [.titled, .closable, .miniaturizable, .resizable],
                 backing: .buffered,
                 defer: false
             )
             window.title = "Forelight Settings"
-            window.minSize = NSSize(width: 700, height: 560)
+            window.minSize = NSSize(width: 720, height: 600)
             window.backgroundColor = ForelightStyle.windowNSColor
+            window.appearance = ForelightStyle.darkAppearance
             window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
             window.isReleasedWhenClosed = false
             window.delegate = self
