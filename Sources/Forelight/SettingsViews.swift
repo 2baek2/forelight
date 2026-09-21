@@ -232,6 +232,11 @@ struct SettingsView: View {
     let onApplyGroup: (String) -> Void
     let onSaveGroup: () -> Void
     let onDeleteGroup: (String) -> Void
+    let onExportSettings: () -> Void
+    let onImportSettings: () -> Void
+    let onResetSettings: () -> Void
+    let onShowOnboarding: () -> Void
+    let onShowAbout: () -> Void
     let onOpenAccessibilitySettings: () -> Void
 
     @State private var selectedSection: Section = .general
@@ -603,6 +608,40 @@ struct SettingsView: View {
                 Text("Forelight keeps this permission at the app identity level, so rebuilding the app does not require adding it again.")
                     .font(.callout)
                     .foregroundStyle(ForelightStyle.muted)
+
+                Card {
+                    CardRow(title: "Setup", subtitle: "Revisit permissions and the shortcut", systemImage: "sparkles") {
+                        Button("Show Welcome", action: onShowOnboarding)
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                    }
+                    CardDivider()
+                    CardRow(title: "About", subtitle: "Version and credits", systemImage: "info.circle") {
+                        Button("About Forelight", action: onShowAbout)
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                    }
+                }
+
+                Card {
+                    CardRow(title: "Export Settings", subtitle: "Save everything to a JSON file", systemImage: "square.and.arrow.up") {
+                        Button("Export…", action: onExportSettings)
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                    }
+                    CardDivider()
+                    CardRow(title: "Import Settings", subtitle: "Restore from a JSON file", systemImage: "square.and.arrow.down") {
+                        Button("Import…", action: onImportSettings)
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                    }
+                    CardDivider()
+                    CardRow(title: "Reset Settings", subtitle: "Clear exceptions, apps, groups and preferences", systemImage: "trash") {
+                        Button("Reset…", action: onResetSettings)
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                    }
+                }
             }
         }
     }

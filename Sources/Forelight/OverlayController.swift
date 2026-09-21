@@ -10,10 +10,27 @@ enum ForelightSettings {
     static let restoreDelayKey = "dragRestoreDelay"
     static let appearanceModeKey = "appearanceMode"
     static let shortcutKey = "globalShortcut"
+    static let exceptionsKey = "excludedBundleIDs"
     static let appIntensitiesKey = "appIntensities"
     static let appIntensityEnabledKey = "appIntensityEnabled"
     static let focusGroupsKey = "focusGroups"
+    static let hasCompletedOnboardingKey = "hasCompletedOnboarding"
     static let intensityRange: ClosedRange<Double> = 0.10...0.90
+
+    /// Every key that holds user settings, used by export, import and reset.
+    static let allKeys: [String] = [
+        enabledKey,
+        intensityKey,
+        hideWhileMovingKey,
+        fadeDurationKey,
+        restoreDelayKey,
+        appearanceModeKey,
+        shortcutKey,
+        exceptionsKey,
+        appIntensitiesKey,
+        appIntensityEnabledKey,
+        focusGroupsKey
+    ]
 
     static func clampedIntensity(_ value: Double) -> Double {
         min(max(value, intensityRange.lowerBound), intensityRange.upperBound)
@@ -27,8 +44,6 @@ enum ForelightSettings {
 
 @MainActor
 final class OverlayController {
-    private static let excludedBundleIDsKey = "excludedBundleIDs"
-
     private(set) var intensity: Double {
         didSet {
             UserDefaults.standard.set(intensity, forKey: ForelightSettings.intensityKey)
@@ -65,10 +80,10 @@ final class OverlayController {
     private let ownPID = ProcessInfo.processInfo.processIdentifier
 
     init() {
-        if let stored = UserDefaults.standard.dictionary(forKey: Self.excludedBundleIDsKey) as? [String: Bool] {
+        if let stored = UserDefaults.standard.dictionary(forKey: ForelightSettings.exceptionsKey) as? [String: Bool] {
             exceptions = stored
         } else {
-            let legacy = UserDefaults.standard.stringArray(forKey: Self.excludedBundleIDsKey) ?? []
+            let legacy = UserDefaults.standard.stringArray(forKey: ForelightSettings.exceptionsKey) ?? []
             exceptions = Dictionary(uniqueKeysWithValues: legacy.map { ($0, true) })
         }
         if let raw = UserDefaults.standard.dictionary(forKey: ForelightSettings.appIntensitiesKey) {
@@ -135,6 +150,10 @@ final class OverlayController {
 
     var appIntensityStates: [String: Double] {
         appIntensities
+    }
+
+    var appIntensityEnabledStates: [String: Bool] {
+        appIntensityEnabled
     }
 
     var accessibilityTrusted: Bool {
@@ -279,6 +298,46 @@ final class OverlayController {
         }
     }
 
+    /// Re-reads every stored setting from UserDefaults. Used after importing or
+    /// resetting settings.
+    func reloadFromDefaults() {
+        let defaults = UserDefaults.standard
+
+        if let stored = defaults.dictionary(forKey: ForelightSettings.exceptionsKey) as? [String: Bool] {
+            exceptions = stored
+        } else {
+            let legacy = defaults.stringArray(forKey: ForelightSettings.exceptionsKey) ?? []
+            exceptions = Dictionary(uniqueKeysWithValues: legacy.map { ($0, true) })
+        }
+
+        if let raw = defaults.dictionary(forKey: ForelightSettings.appIntensitiesKey) {
+            appIntensities = raw.compactMapValues { ($0 as? NSNumber)?.doubleValue }
+        } else {
+            appIntensities = [:]
+        }
+
+        if let raw = defaults.dictionary(forKey: ForelightSettings.appIntensityEnabledKey) as? [String: Bool] {
+            appIntensityEnabled = raw
+        } else {
+            appIntensityEnabled = [:]
+        }
+
+        if let data = defaults.data(forKey: ForelightSettings.focusGroupsKey),
+           let groups = try? JSONDecoder().decode([FocusGroup].self, from: data) {
+            focusGroupsStorage = groups
+        } else {
+            focusGroupsStorage = []
+        }
+
+        let savedIntensity = defaults.double(forKey: ForelightSettings.intensityKey)
+        intensity = savedIntensity > 0 ? ForelightSettings.clampedIntensity(savedIntensity) : 0.45
+        hideWhileMoving = defaults.object(forKey: ForelightSettings.hideWhileMovingKey) as? Bool ?? true
+        fadeDuration = defaults.object(forKey: ForelightSettings.fadeDurationKey) as? Double ?? 0.12
+        restoreDelay = defaults.object(forKey: ForelightSettings.restoreDelayKey) as? Double ?? 0.05
+        activeGroupName = nil
+        refresh()
+    }
+
     /// Edits whatever intensity is in effect for the frontmost app: its enabled
     /// override when present, otherwise the global value.
     func setDisplayedIntensity(_ value: Double) {
@@ -377,7 +436,7 @@ final class OverlayController {
     }
 
     private func persistExceptions() {
-        UserDefaults.standard.set(exceptions, forKey: Self.excludedBundleIDsKey)
+        UserDefaults.standard.set(exceptions, forKey: ForelightSettings.exceptionsKey)
         activeGroupName = nil
     }
 

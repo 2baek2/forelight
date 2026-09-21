@@ -12,6 +12,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var popover = NSPopover()
     private var settingsWindow: NSWindow?
     private var settingsHostingController: NSHostingController<SettingsView>?
+    private var aboutWindow: NSWindow?
+    private var onboardingWindow: NSWindow?
     private var enabled: Bool
     private var appearanceMode: AppearanceMode
     private var shortcut: KeyCombo
@@ -65,6 +67,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         overlayController.start()
         overlayController.setEnabled(enabled)
         refreshUI()
+        showOnboardingIfNeeded()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -331,6 +334,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         menu.addItem(settingsItem)
         menu.addItem(.separator())
 
+        let aboutItem = NSMenuItem(title: "About Forelight", action: #selector(showAboutFromMenu), keyEquivalent: "")
+        aboutItem.target = self
+        menu.addItem(aboutItem)
+
+        let setupItem = NSMenuItem(title: "Setup…", action: #selector(showOnboardingFromMenu), keyEquivalent: "")
+        setupItem.target = self
+        menu.addItem(setupItem)
+        menu.addItem(.separator())
+
         let quitItem = NSMenuItem(
             title: "Quit Forelight",
             action: #selector(quitFromMenu),
@@ -375,6 +387,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     @objc private func saveGroupFromMenu() {
         saveCurrentAsGroup()
+    }
+
+    @objc private func showAboutFromMenu() {
+        showAbout()
+    }
+
+    @objc private func showOnboardingFromMenu() {
+        showOnboarding()
     }
 
     @objc private func quitFromMenu() {
@@ -499,6 +519,172 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         guard alert.runModal() == .alertFirstButtonReturn else { return nil }
         let name = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
         return name.isEmpty ? nil : name
+    }
+
+    // MARK: - Settings import / export / reset
+
+    private func exportSettings() {
+        var document = SettingsDocument.load(from: .standard)
+        document.launchAtLogin = SMAppService.mainApp.status == .enabled
+
+        let panel = NSSavePanel()
+        panel.title = "Export Forelight Settings"
+        panel.nameFieldStringValue = "Forelight Settings.json"
+        panel.allowedContentTypes = [.json]
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        do {
+            try document.encoded().write(to: url)
+        } catch {
+            presentSimpleAlert(title: "Export Failed", message: error.localizedDescription)
+        }
+    }
+
+    private func importSettings() {
+        let panel = NSOpenPanel()
+        panel.title = "Import Forelight Settings"
+        panel.allowedContentTypes = [.json]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        do {
+            let data = try Data(contentsOf: url)
+            let document = try SettingsDocument.decode(from: data)
+            if let launch = document.launchAtLogin, launch != (SMAppService.mainApp.status == .enabled) {
+                setLaunchAtLogin(launch)
+            }
+            document.write(to: .standard)
+            applyAfterSettingsChange()
+        } catch {
+            presentSimpleAlert(title: "Import Failed", message: error.localizedDescription)
+        }
+    }
+
+    private func resetSettings() {
+        let alert = NSAlert()
+        alert.messageText = "Reset All Settings?"
+        alert.informativeText = "This clears your exceptions, per-app intensities, groups, appearance, and shortcut. It cannot be undone."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Reset")
+        alert.addButton(withTitle: "Cancel")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+
+        for key in ForelightSettings.allKeys {
+            UserDefaults.standard.removeObject(forKey: key)
+        }
+        applyAfterSettingsChange()
+    }
+
+    private func applyAfterSettingsChange() {
+        let defaults = UserDefaults.standard
+        enabled = defaults.object(forKey: ForelightSettings.enabledKey) as? Bool ?? true
+        appearanceMode = AppearanceMode(
+            rawValue: defaults.string(forKey: ForelightSettings.appearanceModeKey) ?? ""
+        ) ?? .dark
+        if let data = defaults.data(forKey: ForelightSettings.shortcutKey),
+           let saved = try? JSONDecoder().decode(KeyCombo.self, from: data) {
+            shortcut = saved
+        } else {
+            shortcut = .default
+        }
+
+        overlayController.reloadFromDefaults()
+        popover.appearance = appearanceMode.nsAppearance
+        settingsWindow?.appearance = appearanceMode.nsAppearance
+        settingsWindow?.backgroundColor = ForelightStyle.windowNSColor
+        configureGlobalShortcut()
+        overlayController.setEnabled(enabled)
+        refreshUI()
+    }
+
+    private func presentSimpleAlert(title: String, message: String) {
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = message
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
+    }
+
+    // MARK: - About and onboarding
+
+    private static var appVersion: String {
+        let short = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.0"
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "0"
+        return "\(short) (\(build))"
+    }
+
+    private func showAbout() {
+        if aboutWindow == nil {
+            let window = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 380, height: 320),
+                styleMask: [.titled, .closable],
+                backing: .buffered,
+                defer: false
+            )
+            window.title = "About Forelight"
+            window.isReleasedWhenClosed = false
+            window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+            window.delegate = self
+            window.contentViewController = NSHostingController(
+                rootView: AboutView(
+                    version: Self.appVersion,
+                    onOpenSettings: { [weak self] in self?.presentSettings() }
+                )
+            )
+            aboutWindow = window
+        }
+        presentAuxiliaryWindow(aboutWindow)
+    }
+
+    private func showOnboardingIfNeeded() {
+        guard !UserDefaults.standard.bool(forKey: ForelightSettings.hasCompletedOnboardingKey) else { return }
+        // Mark it seen now so it only appears once, however the window is closed.
+        UserDefaults.standard.set(true, forKey: ForelightSettings.hasCompletedOnboardingKey)
+        showOnboarding()
+    }
+
+    private func showOnboarding() {
+        if onboardingWindow == nil {
+            let window = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 540, height: 460),
+                styleMask: [.titled, .closable],
+                backing: .buffered,
+                defer: false
+            )
+            window.title = "Welcome to Forelight"
+            window.isReleasedWhenClosed = false
+            window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+            window.delegate = self
+            window.contentViewController = NSHostingController(
+                rootView: OnboardingView(
+                    model: model,
+                    onShortcutChanged: { [weak self] combo in self?.setShortcut(combo) },
+                    onShortcutRecordingChanged: { [weak self] recording in self?.setShortcutRecording(recording) },
+                    onOpenAccessibilitySettings: { [weak self] in self?.overlayController.openAccessibilitySettings() },
+                    onFinish: { [weak self] in self?.finishOnboarding() }
+                )
+            )
+            onboardingWindow = window
+        }
+        presentAuxiliaryWindow(onboardingWindow)
+    }
+
+    private func finishOnboarding() {
+        UserDefaults.standard.set(true, forKey: ForelightSettings.hasCompletedOnboardingKey)
+        onboardingWindow?.close()
+    }
+
+    private func presentAuxiliaryWindow(_ window: NSWindow?) {
+        guard let window else { return }
+        window.appearance = appearanceMode.nsAppearance
+        window.backgroundColor = ForelightStyle.windowNSColor
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate(ignoringOtherApps: true)
+        window.center()
+        window.orderFrontRegardless()
+        window.makeKeyAndOrderFront(nil)
+        window.level = .modalPanel
     }
 
     private func setIntensity(_ value: Double) {
@@ -673,6 +859,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                     onApplyGroup: { [weak self] name in self?.applyGroup(named: name) },
                     onSaveGroup: { [weak self] in self?.saveCurrentAsGroup() },
                     onDeleteGroup: { [weak self] name in self?.deleteGroup(named: name) },
+                    onExportSettings: { [weak self] in self?.exportSettings() },
+                    onImportSettings: { [weak self] in self?.importSettings() },
+                    onResetSettings: { [weak self] in self?.resetSettings() },
+                    onShowOnboarding: { [weak self] in self?.showOnboarding() },
+                    onShowAbout: { [weak self] in self?.showAbout() },
                     onOpenAccessibilitySettings: { [weak self] in self?.overlayController.openAccessibilitySettings() }
                 )
             )
@@ -691,7 +882,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     func windowWillClose(_ notification: Notification) {
-        NSApp.setActivationPolicy(.accessory)
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            let settingsVisible = self.settingsWindow?.isVisible == true
+            let aboutVisible = self.aboutWindow?.isVisible == true
+            let onboardingVisible = self.onboardingWindow?.isVisible == true
+            if !settingsVisible, !aboutVisible, !onboardingVisible {
+                NSApp.setActivationPolicy(.accessory)
+            }
+        }
     }
 
     private func toggleEnabled() {
