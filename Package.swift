@@ -13,6 +13,10 @@ let package = Package(
     targets: [
         .executableTarget(
             name: "Forelight"
+        ),
+        .testTarget(
+            name: "ForelightTests",
+            dependencies: ["Forelight"]
         )
     ]
 )
