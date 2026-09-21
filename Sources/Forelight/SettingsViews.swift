@@ -187,6 +187,10 @@ struct SettingsView: View {
             }
         }
         .frame(minWidth: 700, minHeight: 460)
+        .onChange(of: isEnabled) { newValue in enabledValue = newValue }
+        .onChange(of: hideWhileMoving) { newValue in hideWhileMovingValue = newValue }
+        .onChange(of: fadeDuration) { newValue in fadeDurationValue = newValue }
+        .onChange(of: restoreDelay) { newValue in restoreDelayValue = newValue }
     }
 
     @ViewBuilder

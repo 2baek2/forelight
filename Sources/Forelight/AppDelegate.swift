@@ -7,6 +7,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var statusItem: NSStatusItem!
     private var popover = NSPopover()
     private var settingsWindow: NSWindow?
+    private var settingsHostingController: NSHostingController<SettingsView>?
     private var enabled = UserDefaults.standard.object(forKey: ForelightSettings.enabledKey) as? Bool ?? true
     private var activationObserver: NSObjectProtocol?
     private var terminationObserver: NSObjectProtocol?
@@ -115,7 +116,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         updateStatusItem()
         refreshPopover()
         if settingsWindow?.isVisible == true {
-            showSettings(center: false)
+            updateSettingsContent()
         }
     }
 
@@ -141,7 +142,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 onIntensityChanged: { [weak self] value in self?.setIntensity(value) },
                 onToggleMoving: { [weak self] value in self?.setHideWhileMoving(value) },
                 onToggleExclusion: { [weak self] in self?.toggleCurrentApplicationExclusion() },
-                onOpenSettings: { [weak self] in self?.showSettings() },
+                onOpenSettings: { [weak self] in self?.presentSettings() },
                 onQuit: { NSApplication.shared.terminate(nil) }
             )
         )
@@ -176,7 +177,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         overlayController.setRestoreDelay(value)
     }
 
-    private func showSettings(center: Bool = true) {
+    private func presentSettings(center: Bool = true) {
+        if settingsWindow == nil {
+            let window = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 760, height: 520),
+                styleMask: [.titled, .closable, .miniaturizable, .resizable],
+                backing: .buffered,
+                defer: false
+            )
+            window.title = "Forelight Settings"
+            window.minSize = NSSize(width: 700, height: 460)
+            window.level = .statusBar
+            window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+            window.isReleasedWhenClosed = false
+            window.delegate = self
+            settingsWindow = window
+        }
+
+        updateSettingsContent()
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate(ignoringOtherApps: true)
+        if center {
+            settingsWindow?.center()
+        }
+        settingsWindow?.orderFrontRegardless()
+        settingsWindow?.makeKeyAndOrderFront(nil)
+    }
+
+    private func updateSettingsContent() {
+        guard let settingsWindow else { return }
+
         let content = SettingsView(
             isEnabled: enabled,
             currentApplicationName: overlayController.currentApplicationName,
@@ -195,30 +225,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             onOpenAccessibilitySettings: { [weak self] in self?.overlayController.openAccessibilitySettings() }
         )
 
-        if settingsWindow == nil {
-            let window = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 760, height: 520),
-                styleMask: [.titled, .closable, .miniaturizable, .resizable],
-                backing: .buffered,
-                defer: false
-            )
-            window.title = "Forelight Settings"
-            window.minSize = NSSize(width: 700, height: 460)
-            window.level = .statusBar
-            window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-            window.isReleasedWhenClosed = false
-            window.delegate = self
-            settingsWindow = window
+        if let settingsHostingController {
+            settingsHostingController.rootView = content
+        } else {
+            let hostingController = NSHostingController(rootView: content)
+            settingsHostingController = hostingController
+            settingsWindow.contentViewController = hostingController
         }
-
-        settingsWindow?.contentViewController = NSHostingController(rootView: content)
-        NSApp.setActivationPolicy(.regular)
-        NSApp.activate(ignoringOtherApps: true)
-        if center {
-            settingsWindow?.center()
-        }
-        settingsWindow?.orderFrontRegardless()
-        settingsWindow?.makeKeyAndOrderFront(nil)
     }
 
     func windowWillClose(_ notification: Notification) {

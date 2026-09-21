@@ -135,6 +135,8 @@ final class OverlayController {
             isDraggingWindow = false
             dragEndFailsafe?.cancel()
             dragEndFailsafe = nil
+            dragRestoreWorkItem?.cancel()
+            dragRestoreWorkItem = nil
             overlays.forEach { $0.hideImmediately() }
         }
     }
@@ -290,8 +292,7 @@ final class OverlayController {
                 kAXFocusedApplicationAttribute as CFString,
                 &focusedApplicationValue
             ) == .success,
-            let focusedApplicationValue {
-                let focusedApplication = focusedApplicationValue as! AXUIElement
+            let focusedApplication = axElement(focusedApplicationValue) {
                 var pid: pid_t = 0
                 if AXUIElementGetPid(focusedApplication, &pid) == .success,
                    let application = NSRunningApplication(processIdentifier: pid) {
@@ -306,7 +307,7 @@ final class OverlayController {
     private func attachAXObserver(to pid: pid_t) {
         guard AXIsProcessTrusted() else { return }
         guard observedPID != pid || axObserver == nil else {
-            refreshFocusedWindowObservation()
+            refreshFocusedWindowFrame()
             return
         }
 
@@ -374,9 +375,7 @@ final class OverlayController {
             kAXFocusedWindowAttribute as CFString,
             &focusedWindowValue
         ) == .success,
-        let focusedWindowValue else { return }
-
-        let focusedWindow = focusedWindowValue as! AXUIElement
+        let focusedWindow = axElement(focusedWindowValue) else { return }
         AXUIElementSetMessagingTimeout(focusedWindow, 0.4)
         let refcon = Unmanaged.passUnretained(self).toOpaque()
         AXObserverAddNotification(
@@ -414,16 +413,16 @@ final class OverlayController {
             kAXSizeAttribute as CFString,
             &sizeValue
         ) == .success,
-        let positionValue,
-        let sizeValue else {
+        let positionAXValue = axValue(positionValue),
+        let sizeAXValue = axValue(sizeValue) else {
             focusedWindowFrame = nil
             return
         }
 
         var position = CGPoint.zero
         var size = CGSize.zero
-        guard AXValueGetValue(positionValue as! AXValue, .cgPoint, &position),
-              AXValueGetValue(sizeValue as! AXValue, .cgSize, &size),
+        guard AXValueGetValue(positionAXValue, .cgPoint, &position),
+              AXValueGetValue(sizeAXValue, .cgSize, &size),
               size.width > 30,
               size.height > 30,
               let primaryScreen = NSScreen.screens.first else {
@@ -445,6 +444,16 @@ final class OverlayController {
             return false
         }
         return name.localizedCaseInsensitiveContains("Computer Use")
+    }
+
+    private func axElement(_ value: CFTypeRef?) -> AXUIElement? {
+        guard let value, CFGetTypeID(value) == AXUIElementGetTypeID() else { return nil }
+        return (value as! AXUIElement)
+    }
+
+    private func axValue(_ value: CFTypeRef?) -> AXValue? {
+        guard let value, CFGetTypeID(value) == AXValueGetTypeID() else { return nil }
+        return (value as! AXValue)
     }
 
     private func removeAXObserver() {
@@ -513,7 +522,6 @@ final class OverlayController {
 
 private struct WindowSnapshot {
     let bounds: CGRect
-    let ownerPID: pid_t
 }
 
 private enum ActiveWindowLocator {
@@ -550,7 +558,7 @@ private enum ActiveWindowLocator {
                 continue
             }
 
-            let snapshot = WindowSnapshot(bounds: bounds, ownerPID: ownerPID)
+            let snapshot = WindowSnapshot(bounds: bounds)
             if ownerPID == preferredOwnerPID {
                 return snapshot
             }
