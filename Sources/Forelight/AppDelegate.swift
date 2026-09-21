@@ -1,4 +1,5 @@
 import AppKit
+import ServiceManagement
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -42,7 +43,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             restoreDelay: controller.restoreDelay,
             exceptions: [],
             appearanceMode: appearanceMode,
-            shortcut: shortcut
+            shortcut: shortcut,
+            launchAtLogin: SMAppService.mainApp.status == .enabled
         )
         super.init()
     }
@@ -71,8 +73,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private func configureStatusItem() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         statusItem.button?.target = self
-        statusItem.button?.action = #selector(togglePopover)
-        statusItem.button?.sendAction(on: [.leftMouseUp])
+        statusItem.button?.action = #selector(statusItemClicked)
+        statusItem.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
         popover.behavior = .transient
         popover.animates = true
         popover.appearance = appearanceMode.nsAppearance
@@ -175,6 +177,63 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         settingsWindow?.level = NSApp.isActive ? .modalPanel : .normal
     }
 
+    @objc private func statusItemClicked() {
+        if NSApp.currentEvent?.type == .rightMouseUp {
+            presentStatusMenu()
+        } else {
+            togglePopover()
+        }
+    }
+
+    private func presentStatusMenu() {
+        guard let button = statusItem.button else { return }
+        let menu = NSMenu()
+
+        let toggleItem = NSMenuItem(
+            title: enabled ? "Disable Forelight" : "Enable Forelight",
+            action: #selector(toggleEnabledFromMenu),
+            keyEquivalent: ""
+        )
+        toggleItem.target = self
+        menu.addItem(toggleItem)
+        menu.addItem(.separator())
+
+        let settingsItem = NSMenuItem(
+            title: "Settings…",
+            action: #selector(openSettingsFromMenu),
+            keyEquivalent: ","
+        )
+        settingsItem.target = self
+        menu.addItem(settingsItem)
+        menu.addItem(.separator())
+
+        let quitItem = NSMenuItem(
+            title: "Quit Forelight",
+            action: #selector(quitFromMenu),
+            keyEquivalent: "q"
+        )
+        quitItem.target = self
+        menu.addItem(quitItem)
+
+        menu.popUp(
+            positioning: nil,
+            at: NSPoint(x: 0, y: button.bounds.height + 6),
+            in: button
+        )
+    }
+
+    @objc private func toggleEnabledFromMenu() {
+        toggleEnabled()
+    }
+
+    @objc private func openSettingsFromMenu() {
+        presentSettings()
+    }
+
+    @objc private func quitFromMenu() {
+        NSApp.terminate(nil)
+    }
+
     @objc private func togglePopover() {
         guard let button = statusItem.button else { return }
         if popover.isShown {
@@ -201,6 +260,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         model.restoreDelay = overlayController.restoreDelay
         model.appearanceMode = appearanceMode
         model.shortcut = shortcut
+        model.launchAtLogin = SMAppService.mainApp.status == .enabled
         model.exceptions = overlayController.exceptionStates
             .map { bundleID, isEnabled in
                 let info = AppInfoResolver.resolve(bundleID: bundleID)
@@ -278,6 +338,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         shortcutGate.setSuppressed(recording)
     }
 
+    private func setLaunchAtLogin(_ enabled: Bool) {
+        do {
+            if enabled {
+                try SMAppService.mainApp.register()
+            } else {
+                try SMAppService.mainApp.unregister()
+            }
+        } catch {
+            NSLog("Forelight: could not update login item: \(error.localizedDescription)")
+        }
+        syncModel()
+    }
+
     private func setException(bundleID: String, enabled: Bool) {
         overlayController.setException(bundleID: bundleID, enabled: enabled)
         refreshUI()
@@ -336,6 +409,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                     onAppearanceModeChanged: { [weak self] mode in self?.setAppearanceMode(mode) },
                     onShortcutChanged: { [weak self] combo in self?.setShortcut(combo) },
                     onShortcutRecordingChanged: { [weak self] recording in self?.setShortcutRecording(recording) },
+                    onLaunchAtLoginChanged: { [weak self] value in self?.setLaunchAtLogin(value) },
                     onSetException: { [weak self] bundleID, enabled in self?.setException(bundleID: bundleID, enabled: enabled) },
                     onRemoveException: { [weak self] bundleID in self?.removeException(bundleID: bundleID) },
                     onAddException: { [weak self] in self?.addExceptionFromPanel() },

@@ -137,6 +137,7 @@ struct SettingsView: View {
     let onAppearanceModeChanged: (AppearanceMode) -> Void
     let onShortcutChanged: (KeyCombo) -> Void
     let onShortcutRecordingChanged: (Bool) -> Void
+    let onLaunchAtLoginChanged: (Bool) -> Void
     let onSetException: (String, Bool) -> Void
     let onRemoveException: (String) -> Void
     let onAddException: () -> Void
@@ -202,12 +203,20 @@ struct SettingsView: View {
                     subtitle: "Click, then press a new shortcut",
                     systemImage: "keyboard"
                 ) {
-                    ShortcutRecorder(
-                        combo: model.shortcut,
-                        onChange: { combo in onShortcutChanged(combo) },
-                        onRecordingChanged: { recording in onShortcutRecordingChanged(recording) }
-                    )
-                    .frame(width: 150, height: 24)
+                    HStack(spacing: 6) {
+                        ShortcutRecorder(
+                            combo: model.shortcut,
+                            onChange: { combo in onShortcutChanged(combo) },
+                            onRecordingChanged: { recording in onShortcutRecordingChanged(recording) }
+                        )
+                        .frame(width: 140, height: 24)
+
+                        Button("Reset") {
+                            onShortcutChanged(.default)
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    }
                 }
                 CardDivider()
                 CardRow(
@@ -226,6 +235,20 @@ struct SettingsView: View {
                     .pickerStyle(.segmented)
                     .labelsHidden()
                     .frame(width: 210)
+                }
+                CardDivider()
+                CardRow(
+                    title: "Launch at login",
+                    subtitle: "Start Forelight when you sign in",
+                    systemImage: "power"
+                ) {
+                    Toggle("", isOn: Binding(
+                        get: { model.launchAtLogin },
+                        set: { value in onLaunchAtLoginChanged(value) }
+                    ))
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+                    .controlSize(.small)
                 }
             }
         case .focus:

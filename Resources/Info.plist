@@ -6,6 +6,8 @@
 	<string>Forelight</string>
 	<key>CFBundleExecutable</key>
 	<string>Forelight</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.forelight.app</string>
 	<key>CFBundleInfoDictionaryVersion</key>

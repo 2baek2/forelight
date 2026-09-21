@@ -7,9 +7,12 @@ Forelight is a small macOS menu bar utility that keeps the frontmost window clea
 - Active-window cutout on every connected display
 - Menu bar panel with enabled state, current app, settings, and quit actions
 - Continuous dim-intensity slider with direct percentage input
-- Global `⌥⌘F` toggle shortcut
+- Recordable global toggle shortcut (default `⌥⌘F`)
 - Optional hide-while-moving behavior with fade and restore timing controls
-- Current-app exclusion, persisted by Bundle ID
+- Per-app exceptions, persisted by Bundle ID, managed as a toggle list
+- Dark, light, or system appearance
+- Optional launch at login
+- Steps aside while Mission Control, App Exposé, Launchpad, or Show Desktop is open
 - Automatic refresh after app activation, mouse clicks, display changes, and window changes
 - Accessibility-based movement and resize tracking, with CoreGraphics polling as a fallback
 

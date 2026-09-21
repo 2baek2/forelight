@@ -14,8 +14,9 @@ fi
 
 swift build --package-path "$ROOT_DIR"
 
-mkdir -p "$APP_PATH/Contents/MacOS"
+mkdir -p "$APP_PATH/Contents/MacOS" "$APP_PATH/Contents/Resources"
 cp "$ROOT_DIR/Resources/Info.plist" "$APP_PATH/Contents/Info.plist"
+cp "$ROOT_DIR/Resources/AppIcon.icns" "$APP_PATH/Contents/Resources/AppIcon.icns"
 cp "$EXECUTABLE" "$APP_PATH/Contents/MacOS/Forelight"
 
 codesign --force --deep --sign "$SIGNING_IDENTITY" "$APP_PATH"
