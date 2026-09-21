@@ -11,10 +11,16 @@ enum ForelightSettings {
     static let appearanceModeKey = "appearanceMode"
     static let shortcutKey = "globalShortcut"
     static let appIntensitiesKey = "appIntensities"
+    static let appIntensityEnabledKey = "appIntensityEnabled"
     static let intensityRange: ClosedRange<Double> = 0.10...0.90
 
     static func clampedIntensity(_ value: Double) -> Double {
         min(max(value, intensityRange.lowerBound), intensityRange.upperBound)
+    }
+
+    static func effectiveIntensity(global: Double, override: Double?, isEnabled: Bool) -> Double {
+        guard let override, isEnabled else { return global }
+        return override
     }
 }
 
@@ -35,6 +41,7 @@ final class OverlayController {
     private var isEnabled = true
     private var exceptions: [String: Bool]
     private var appIntensities: [String: Double]
+    private var appIntensityEnabled: [String: Bool]
     private var currentApplication: NSRunningApplication?
     private var isDraggingWindow = false
     private var mouseButtonDown = false
@@ -65,6 +72,11 @@ final class OverlayController {
         } else {
             appIntensities = [:]
         }
+        if let raw = UserDefaults.standard.dictionary(forKey: ForelightSettings.appIntensityEnabledKey) as? [String: Bool] {
+            appIntensityEnabled = raw
+        } else {
+            appIntensityEnabled = [:]
+        }
         let savedIntensity = UserDefaults.standard.double(forKey: ForelightSettings.intensityKey)
         intensity = savedIntensity > 0 ? savedIntensity : 0.45
         let defaults = UserDefaults.standard
@@ -90,19 +102,25 @@ final class OverlayController {
         exceptions
     }
 
-    /// Intensity that applies to the frontmost app right now: its per-app
-    /// override when it has one, otherwise the global value.
+    /// Intensity that applies to the frontmost app right now: its enabled
+    /// per-app override when it has one, otherwise the global value.
     var displayedIntensity: Double {
-        if let bundleID = currentApplication?.bundleIdentifier,
-           let override = appIntensities[bundleID] {
-            return override
-        }
-        return intensity
+        guard let bundleID = currentApplication?.bundleIdentifier else { return intensity }
+        return ForelightSettings.effectiveIntensity(
+            global: intensity,
+            override: appIntensities[bundleID],
+            isEnabled: isAppIntensityEnabled(bundleID)
+        )
     }
 
-    var currentApplicationIntensityOverride: Double? {
-        guard let bundleID = currentApplication?.bundleIdentifier else { return nil }
-        return appIntensities[bundleID]
+    /// Whether the frontmost app has an active (enabled) override.
+    var currentApplicationHasIntensityOverride: Bool {
+        guard let bundleID = currentApplication?.bundleIdentifier else { return false }
+        return appIntensities[bundleID] != nil && isAppIntensityEnabled(bundleID)
+    }
+
+    func isAppIntensityEnabled(_ bundleID: String) -> Bool {
+        appIntensityEnabled[bundleID] ?? true
     }
 
     var appIntensityStates: [String: Double] {
@@ -190,10 +208,12 @@ final class OverlayController {
         intensity = ForelightSettings.clampedIntensity(value)
     }
 
-    /// Edits whatever intensity is in effect for the frontmost app: its override
-    /// when present, otherwise the global value.
+    /// Edits whatever intensity is in effect for the frontmost app: its enabled
+    /// override when present, otherwise the global value.
     func setDisplayedIntensity(_ value: Double) {
-        if let bundleID = currentApplication?.bundleIdentifier, appIntensities[bundleID] != nil {
+        if let bundleID = currentApplication?.bundleIdentifier,
+           appIntensities[bundleID] != nil,
+           isAppIntensityEnabled(bundleID) {
             setAppIntensity(bundleID: bundleID, value: value)
         } else {
             setIntensity(value)
@@ -202,18 +222,29 @@ final class OverlayController {
 
     func setAppIntensity(bundleID: String, value: Double) {
         appIntensities[bundleID] = ForelightSettings.clampedIntensity(value)
+        if appIntensityEnabled[bundleID] == nil {
+            appIntensityEnabled[bundleID] = true
+        }
+        persistAppIntensities()
+        refresh()
+    }
+
+    func setAppIntensityEnabled(bundleID: String, enabled: Bool) {
+        appIntensityEnabled[bundleID] = enabled
         persistAppIntensities()
         refresh()
     }
 
     func removeAppIntensity(bundleID: String) {
         appIntensities.removeValue(forKey: bundleID)
+        appIntensityEnabled.removeValue(forKey: bundleID)
         persistAppIntensities()
         refresh()
     }
 
     private func persistAppIntensities() {
         UserDefaults.standard.set(appIntensities, forKey: ForelightSettings.appIntensitiesKey)
+        UserDefaults.standard.set(appIntensityEnabled, forKey: ForelightSettings.appIntensityEnabledKey)
     }
 
     func setHideWhileMoving(_ value: Bool) {

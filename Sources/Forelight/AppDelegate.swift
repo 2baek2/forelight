@@ -290,7 +290,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         model.shortcut = shortcut
         model.launchAtLogin = SMAppService.mainApp.status == .enabled
         model.effectiveIntensity = overlayController.displayedIntensity
-        model.currentApplicationHasIntensityOverride = overlayController.currentApplicationIntensityOverride != nil
+        model.currentApplicationHasIntensityOverride = overlayController.currentApplicationHasIntensityOverride
         model.appIntensityOverrides = overlayController.appIntensityStates
             .map { bundleID, value in
                 let info = AppInfoResolver.resolve(bundleID: bundleID)
@@ -298,7 +298,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                     bundleID: bundleID,
                     name: info.name,
                     icon: info.icon,
-                    value: value
+                    value: value,
+                    isEnabled: overlayController.isAppIntensityEnabled(bundleID)
                 )
             }
             .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
@@ -346,10 +347,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     private func toggleCurrentApplicationIntensityOverride() {
         guard let bundleID = overlayController.currentApplicationBundleID else { return }
-        if overlayController.currentApplicationIntensityOverride != nil {
-            overlayController.removeAppIntensity(bundleID: bundleID)
+        if overlayController.currentApplicationHasIntensityOverride {
+            // Keep the entry in the list but fall back to the global value.
+            overlayController.setAppIntensityEnabled(bundleID: bundleID, enabled: false)
+        } else if overlayController.appIntensityStates[bundleID] != nil {
+            overlayController.setAppIntensityEnabled(bundleID: bundleID, enabled: true)
         } else {
-            overlayController.setAppIntensity(bundleID: bundleID, value: overlayController.displayedIntensity)
+            overlayController.setAppIntensity(bundleID: bundleID, value: overlayController.intensity)
         }
         refreshUI()
     }
@@ -357,6 +361,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private func setAppIntensity(bundleID: String, value: Double) {
         overlayController.setAppIntensity(bundleID: bundleID, value: value)
         syncModel()
+    }
+
+    private func setAppIntensityEnabled(bundleID: String, enabled: Bool) {
+        overlayController.setAppIntensityEnabled(bundleID: bundleID, enabled: enabled)
+        refreshUI()
     }
 
     private func removeAppIntensity(bundleID: String) {
@@ -492,6 +501,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                     onRemoveException: { [weak self] bundleID in self?.removeException(bundleID: bundleID) },
                     onAddException: { [weak self] in self?.addExceptionFromPanel() },
                     onSetAppIntensity: { [weak self] bundleID, value in self?.setAppIntensity(bundleID: bundleID, value: value) },
+                    onSetAppIntensityEnabled: { [weak self] bundleID, enabled in self?.setAppIntensityEnabled(bundleID: bundleID, enabled: enabled) },
                     onRemoveAppIntensity: { [weak self] bundleID in self?.removeAppIntensity(bundleID: bundleID) },
                     onAddAppIntensity: { [weak self] in self?.addAppIntensityFromPanel() },
                     onOpenAccessibilitySettings: { [weak self] in self?.overlayController.openAccessibilitySettings() }

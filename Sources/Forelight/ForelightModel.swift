@@ -15,6 +15,7 @@ struct AppIntensityEntry: Identifiable {
     let name: String
     let icon: NSImage?
     var value: Double
+    var isEnabled: Bool
 
     var id: String { bundleID }
 }

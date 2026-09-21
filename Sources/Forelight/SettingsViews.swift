@@ -190,6 +190,7 @@ struct SettingsView: View {
     let onRemoveException: (String) -> Void
     let onAddException: () -> Void
     let onSetAppIntensity: (String, Double) -> Void
+    let onSetAppIntensityEnabled: (String, Bool) -> Void
     let onRemoveAppIntensity: (String) -> Void
     let onAddAppIntensity: () -> Void
     let onOpenAccessibilitySettings: () -> Void
@@ -425,6 +426,13 @@ struct SettingsView: View {
                             }
                             Text(entry.name)
                             Spacer()
+                            Toggle("", isOn: Binding(
+                                get: { entry.isEnabled },
+                                set: { value in onSetAppIntensityEnabled(entry.bundleID, value) }
+                            ))
+                            .labelsHidden()
+                            .toggleStyle(.switch)
+                            .controlSize(.small)
                             Slider(
                                 value: Binding(
                                     get: { entry.value },
@@ -432,7 +440,8 @@ struct SettingsView: View {
                                 ),
                                 in: ForelightSettings.intensityRange
                             )
-                            .frame(width: 160)
+                            .frame(width: 150)
+                            .disabled(!entry.isEnabled)
                             Text("\(Int((entry.value * 100).rounded()))%")
                                 .font(.caption.monospacedDigit())
                                 .foregroundStyle(ForelightStyle.muted)

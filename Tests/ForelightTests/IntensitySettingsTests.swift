@@ -15,4 +15,17 @@ struct IntensitySettingsTests {
         #expect(ForelightSettings.clampedIntensity(0.10) == 0.10)
         #expect(ForelightSettings.clampedIntensity(0.90) == 0.90)
     }
+
+    @Test func enabledOverrideWins() {
+        #expect(ForelightSettings.effectiveIntensity(global: 0.5, override: 0.2, isEnabled: true) == 0.2)
+    }
+
+    @Test func disabledOverrideFallsBackToGlobal() {
+        #expect(ForelightSettings.effectiveIntensity(global: 0.5, override: 0.2, isEnabled: false) == 0.5)
+    }
+
+    @Test func missingOverrideUsesGlobal() {
+        #expect(ForelightSettings.effectiveIntensity(global: 0.5, override: nil, isEnabled: true) == 0.5)
+        #expect(ForelightSettings.effectiveIntensity(global: 0.5, override: nil, isEnabled: false) == 0.5)
+    }
 }
