@@ -63,6 +63,9 @@ final class ForelightModel: ObservableObject {
     @Published var focusGroups: [FocusGroup]
     @Published var activeGroupName: String?
     @Published var displays: [DisplayIntensityEntry]
+    @Published var spotlightMode: SpotlightMode
+    @Published var spotlightRadius: Double
+    @Published var spotlightFeather: Double
 
     init(
         isEnabled: Bool,
@@ -84,7 +87,10 @@ final class ForelightModel: ObservableObject {
         snoozeUntil: Date?,
         focusGroups: [FocusGroup],
         activeGroupName: String?,
-        displays: [DisplayIntensityEntry]
+        displays: [DisplayIntensityEntry],
+        spotlightMode: SpotlightMode,
+        spotlightRadius: Double,
+        spotlightFeather: Double
     ) {
         self.isEnabled = isEnabled
         self.currentApplicationName = currentApplicationName
@@ -106,5 +112,8 @@ final class ForelightModel: ObservableObject {
         self.focusGroups = focusGroups
         self.activeGroupName = activeGroupName
         self.displays = displays
+        self.spotlightMode = spotlightMode
+        self.spotlightRadius = spotlightRadius
+        self.spotlightFeather = spotlightFeather
     }
 }

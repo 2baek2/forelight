@@ -15,6 +15,9 @@ struct SettingsDocumentTests {
         document.appIntensityEnabled = ["com.apple.dt.Xcode": false]
         document.displayIntensities = ["display-uuid": 0.8]
         document.displayDimmingDisabled = ["other-display": true]
+        document.spotlightMode = "windowAndCursor"
+        document.spotlightRadius = 140
+        document.spotlightFeather = 30
         document.focusGroups = [
             FocusGroup(name: "Coding", intensity: 0.4, exceptions: [:], appIntensities: [:], appIntensityEnabled: [:])
         ]

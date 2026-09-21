@@ -20,6 +20,8 @@ func printUsage() {
       resume                     cancel a snooze
       intensity <0.1-0.9>        set the global dim intensity
       appearance <system|light|dark>
+      spotlight <window|cursor|both>
+      group <name>               apply a saved focus group
       url <forelight://...>      open a raw URL
     """)
 }
@@ -50,6 +52,11 @@ case "intensity":
 case "appearance":
     guard let mode = arguments.dropFirst().first else { fail("appearance needs a mode") }
     components.host = "appearance"
+    components.queryItems = [URLQueryItem(name: "mode", value: mode)]
+
+case "spotlight":
+    guard let mode = arguments.dropFirst().first else { fail("spotlight needs a mode (window|cursor|both)") }
+    components.host = "spotlight"
     components.queryItems = [URLQueryItem(name: "mode", value: mode)]
 
 case "url":

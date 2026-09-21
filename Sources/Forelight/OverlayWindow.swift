@@ -1,5 +1,30 @@
 import AppKit
 
+enum SpotlightMode: String, CaseIterable, Identifiable {
+    case window
+    case cursor
+    case windowAndCursor
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .window: return "Window"
+        case .cursor: return "Cursor"
+        case .windowAndCursor: return "Window + Cursor"
+        }
+    }
+
+    var includesWindow: Bool { self != .cursor }
+    var includesCursor: Bool { self != .window }
+}
+
+struct Spotlight {
+    var center: CGPoint
+    var radius: CGFloat
+    var feather: CGFloat
+}
+
 final class OverlayWindow: NSWindow {
     let targetScreen: NSScreen
     private let overlayView: OverlayView
@@ -36,6 +61,25 @@ final class OverlayWindow: NSWindow {
     func update(cutout: CGRect?, alpha: Double) {
         overlayView.cutout = cutout.map { convertToLocalCoordinates($0) }
         overlayView.alpha = alpha
+        overlayView.needsDisplay = true
+    }
+
+    func updateSpotlight(globalCenter: CGPoint, radius: CGFloat, feather: CGFloat) {
+        guard frame.contains(globalCenter) else {
+            clearSpotlight()
+            return
+        }
+        let local = CGPoint(
+            x: globalCenter.x - frame.origin.x,
+            y: globalCenter.y - frame.origin.y
+        )
+        overlayView.spotlight = Spotlight(center: local, radius: radius, feather: feather)
+        overlayView.needsDisplay = true
+    }
+
+    func clearSpotlight() {
+        guard overlayView.spotlight != nil else { return }
+        overlayView.spotlight = nil
         overlayView.needsDisplay = true
     }
 
@@ -97,6 +141,7 @@ final class OverlayWindow: NSWindow {
 final class OverlayView: NSView {
     var cutout: CGRect?
     var alpha: Double = 0.45
+    var spotlight: Spotlight?
 
     override var isOpaque: Bool { false }
 
@@ -122,5 +167,38 @@ final class OverlayView: NSView {
 
         NSColor.black.withAlphaComponent(alpha).setFill()
         overlayPath.fill()
+
+        if let spotlight, spotlight.radius > 0 {
+            punchFeatheredHole(spotlight, in: context)
+        }
+    }
+
+    /// Removes the dim around the cursor with a soft edge by drawing a radial
+    /// gradient in destination-out mode.
+    private func punchFeatheredHole(_ spotlight: Spotlight, in context: CGContext) {
+        let innerRadius = max(spotlight.radius - max(spotlight.feather, 0), 0)
+        let colors = [
+            NSColor.black.withAlphaComponent(1).cgColor,
+            NSColor.black.withAlphaComponent(0).cgColor
+        ] as CFArray
+
+        guard let gradient = CGGradient(
+            colorsSpace: CGColorSpaceCreateDeviceRGB(),
+            colors: colors,
+            locations: [0, 1]
+        ) else {
+            return
+        }
+
+        context.setBlendMode(.destinationOut)
+        context.drawRadialGradient(
+            gradient,
+            startCenter: spotlight.center,
+            startRadius: innerRadius,
+            endCenter: spotlight.center,
+            endRadius: spotlight.radius,
+            options: []
+        )
+        context.setBlendMode(.normal)
     }
 }

@@ -221,6 +221,9 @@ struct SettingsView: View {
     let onToggleMoving: (Bool) -> Void
     let onFadeDurationChanged: (Double) -> Void
     let onRestoreDelayChanged: (Double) -> Void
+    let onSpotlightModeChanged: (SpotlightMode) -> Void
+    let onSpotlightRadiusChanged: (Double) -> Void
+    let onSpotlightFeatherChanged: (Double) -> Void
     let onAppearanceModeChanged: (AppearanceMode) -> Void
     let onShortcutChanged: (KeyCombo) -> Void
     let onShortcutRecordingChanged: (Bool) -> Void
@@ -394,6 +397,46 @@ struct SettingsView: View {
                             range: 0...0.30,
                             suffix: "s",
                             onChanged: onRestoreDelayChanged
+                        )
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    SectionHeader(title: "Cursor spotlight")
+                    Card {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Include")
+                                .foregroundStyle(ForelightStyle.text)
+                            Picker("", selection: Binding(
+                                get: { model.spotlightMode },
+                                set: { mode in onSpotlightModeChanged(mode) }
+                            )) {
+                                ForEach(SpotlightMode.allCases) { mode in
+                                    Text(mode.label).tag(mode)
+                                }
+                            }
+                            .pickerStyle(.segmented)
+                            .labelsHidden()
+                            Text("Window keeps the focused window clear. Cursor lights the area around the pointer.")
+                                .font(.caption)
+                                .foregroundStyle(ForelightStyle.muted)
+                        }
+                        .padding(12)
+                        CardDivider()
+                        IntegerSliderRow(
+                            title: "Radius",
+                            value: model.spotlightRadius,
+                            range: ForelightSettings.spotlightRadiusRange,
+                            suffix: " pt",
+                            onChanged: onSpotlightRadiusChanged
+                        )
+                        CardDivider()
+                        IntegerSliderRow(
+                            title: "Soft edge",
+                            value: model.spotlightFeather,
+                            range: ForelightSettings.spotlightFeatherRange,
+                            suffix: " pt",
+                            onChanged: onSpotlightFeatherChanged
                         )
                     }
                 }

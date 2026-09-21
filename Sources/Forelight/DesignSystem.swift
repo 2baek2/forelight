@@ -294,6 +294,30 @@ struct PercentageField: View {
     }
 }
 
+struct IntegerSliderRow: View {
+    let title: String
+    let value: Double
+    let range: ClosedRange<Double>
+    let suffix: String
+    let onChanged: (Double) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(title)
+                    .foregroundStyle(ForelightStyle.text)
+                Spacer()
+                Text("\(Int(value.rounded()))\(suffix)")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(ForelightStyle.muted)
+            }
+            Slider(value: Binding(get: { value }, set: { onChanged($0) }), in: range)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+    }
+}
+
 struct SliderRow: View {
     let title: String
     let value: Double

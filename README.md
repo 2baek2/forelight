@@ -13,8 +13,9 @@ Forelight is a small macOS menu bar utility that keeps the frontmost window clea
 - Per-app dim intensity overrides (set from the panel or Settings → Apps), each with a toggle that keeps the entry but falls back to the global value
 - Per-display dim intensity overrides in Settings → Displays, where each screen also has a switch to skip dimming entirely (a display override wins over an app override)
 - Focus Groups: save the current intensity, exceptions, and per-app intensities and switch between them from Settings, the status menu, or `forelight-cli group <name>`
+- Cursor spotlight: optionally light the area around the pointer instead of (or as well as) the focused window, with adjustable radius and soft edge
 - Timed snooze and a capture-safe overlay that stays out of screen recordings
-- `forelight://` URL scheme (toggle, snooze, intensity, appearance, group) and a `forelight-cli` helper
+- `forelight://` URL scheme (toggle, snooze, intensity, appearance, spotlight, group) and a `forelight-cli` helper
 - Dark, light, or system appearance
 - Optional launch at login
 - Steps aside while Mission Control, App Exposé, Launchpad, or Show Desktop is open
@@ -42,7 +43,7 @@ swift run forelight-cli group Coding
 open "forelight://toggle"
 ```
 
-The URL scheme supports `toggle`, `enable`, `disable`, `snooze?minutes=`, `resume`, `intensity?value=`, `appearance?mode=`, and `group?name=`.
+The URL scheme supports `toggle`, `enable`, `disable`, `snooze?minutes=`, `resume`, `intensity?value=`, `appearance?mode=`, `spotlight?mode=`, and `group?name=`.
 
 macOS Accessibility permission is associated with the app's Bundle ID and code-signing identity, not just the app name. The build script keeps the Bundle ID as `com.forelight.app` and signs with the installed `Local Self-Signed` identity by default, so replacing the app on this Mac keeps the same identity. If you use an Apple Developer signing identity, pass it explicitly:
 

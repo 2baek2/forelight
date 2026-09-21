@@ -15,9 +15,14 @@ enum ForelightSettings {
     static let appIntensityEnabledKey = "appIntensityEnabled"
     static let displayIntensitiesKey = "displayIntensities"
     static let displayDimmingDisabledKey = "displayDimmingDisabled"
+    static let spotlightModeKey = "spotlightMode"
+    static let spotlightRadiusKey = "spotlightRadius"
+    static let spotlightFeatherKey = "spotlightFeather"
     static let focusGroupsKey = "focusGroups"
     static let hasCompletedOnboardingKey = "hasCompletedOnboarding"
     static let intensityRange: ClosedRange<Double> = 0.10...0.90
+    static let spotlightRadiusRange: ClosedRange<Double> = 40...400
+    static let spotlightFeatherRange: ClosedRange<Double> = 0...160
 
     /// Every key that holds user settings, used by export, import and reset.
     static let allKeys: [String] = [
@@ -33,6 +38,9 @@ enum ForelightSettings {
         appIntensityEnabledKey,
         displayIntensitiesKey,
         displayDimmingDisabledKey,
+        spotlightModeKey,
+        spotlightRadiusKey,
+        spotlightFeatherKey,
         focusGroupsKey
     ]
 
@@ -72,6 +80,9 @@ final class OverlayController {
     private(set) var hideWhileMoving: Bool
     private(set) var fadeDuration: Double
     private(set) var restoreDelay: Double
+    private(set) var spotlightMode: SpotlightMode
+    private(set) var spotlightRadius: Double
+    private(set) var spotlightFeather: Double
     private var isEnabled = true
     private var exceptions: [String: Bool]
     private var appIntensities: [String: Double]
@@ -97,6 +108,8 @@ final class OverlayController {
     private var dragRestoreWorkItem: DispatchWorkItem?
     private var isMissionControlActive = false
     private var snoozeUntil: Date?
+    private var spotlightTimer: Timer?
+    private var lastSpotlightLocation: CGPoint = .zero
     private let ownPID = ProcessInfo.processInfo.processIdentifier
 
     init() {
@@ -138,6 +151,10 @@ final class OverlayController {
         hideWhileMoving = defaults.object(forKey: ForelightSettings.hideWhileMovingKey) as? Bool ?? true
         fadeDuration = defaults.object(forKey: ForelightSettings.fadeDurationKey) as? Double ?? 0.12
         restoreDelay = defaults.object(forKey: ForelightSettings.restoreDelayKey) as? Double ?? 0.05
+        spotlightMode = SpotlightMode(rawValue: defaults.string(forKey: ForelightSettings.spotlightModeKey) ?? "") ?? .window
+        let savedRadius = defaults.double(forKey: ForelightSettings.spotlightRadiusKey)
+        spotlightRadius = savedRadius > 0 ? savedRadius : 120
+        spotlightFeather = defaults.object(forKey: ForelightSettings.spotlightFeatherKey) as? Double ?? 40
     }
 
     var currentApplicationName: String? {
@@ -236,11 +253,15 @@ final class OverlayController {
                 self?.refresh()
             }
         }
+
+        updateSpotlightTimer()
     }
 
     func stop() {
         refreshTimer?.invalidate()
         refreshTimer = nil
+        spotlightTimer?.invalidate()
+        spotlightTimer = nil
         if let activationObserver {
             NSWorkspace.shared.notificationCenter.removeObserver(activationObserver)
         }
@@ -275,6 +296,7 @@ final class OverlayController {
             dragRestoreWorkItem = nil
             overlays.forEach { $0.hideImmediately() }
         }
+        updateSpotlightTimer()
     }
 
     func setIntensity(_ value: Double) {
@@ -289,10 +311,12 @@ final class OverlayController {
     func snooze(until date: Date) {
         snoozeUntil = date
         overlays.forEach { $0.hideImmediately() }
+        updateSpotlightTimer()
     }
 
     func cancelSnooze() {
         snoozeUntil = nil
+        updateSpotlightTimer()
         refresh()
     }
 
@@ -389,7 +413,12 @@ final class OverlayController {
         hideWhileMoving = defaults.object(forKey: ForelightSettings.hideWhileMovingKey) as? Bool ?? true
         fadeDuration = defaults.object(forKey: ForelightSettings.fadeDurationKey) as? Double ?? 0.12
         restoreDelay = defaults.object(forKey: ForelightSettings.restoreDelayKey) as? Double ?? 0.05
+        spotlightMode = SpotlightMode(rawValue: defaults.string(forKey: ForelightSettings.spotlightModeKey) ?? "") ?? .window
+        let savedRadius = defaults.double(forKey: ForelightSettings.spotlightRadiusKey)
+        spotlightRadius = savedRadius > 0 ? savedRadius : 120
+        spotlightFeather = defaults.object(forKey: ForelightSettings.spotlightFeatherKey) as? Double ?? 40
         activeGroupName = nil
+        updateSpotlightTimer()
         refresh()
     }
 
@@ -484,6 +513,73 @@ final class OverlayController {
         UserDefaults.standard.set(restoreDelay, forKey: ForelightSettings.restoreDelayKey)
     }
 
+    func setSpotlightMode(_ mode: SpotlightMode) {
+        spotlightMode = mode
+        UserDefaults.standard.set(mode.rawValue, forKey: ForelightSettings.spotlightModeKey)
+        updateSpotlightTimer()
+        refresh()
+    }
+
+    func setSpotlightRadius(_ value: Double) {
+        spotlightRadius = min(
+            max(value, ForelightSettings.spotlightRadiusRange.lowerBound),
+            ForelightSettings.spotlightRadiusRange.upperBound
+        )
+        UserDefaults.standard.set(spotlightRadius, forKey: ForelightSettings.spotlightRadiusKey)
+        refreshSpotlight()
+    }
+
+    func setSpotlightFeather(_ value: Double) {
+        spotlightFeather = min(
+            max(value, ForelightSettings.spotlightFeatherRange.lowerBound),
+            ForelightSettings.spotlightFeatherRange.upperBound
+        )
+        UserDefaults.standard.set(spotlightFeather, forKey: ForelightSettings.spotlightFeatherKey)
+        refreshSpotlight()
+    }
+
+    private func updateSpotlightTimer() {
+        let needsSpotlight = isEnabled && !isSnoozed && spotlightMode.includesCursor
+        if needsSpotlight {
+            guard spotlightTimer == nil else { return }
+            lastSpotlightLocation = CGPoint(x: CGFloat.infinity, y: CGFloat.infinity)
+            spotlightTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
+                Task { @MainActor [weak self] in
+                    self?.tickSpotlight()
+                }
+            }
+        } else {
+            spotlightTimer?.invalidate()
+            spotlightTimer = nil
+            overlays.forEach { $0.clearSpotlight() }
+        }
+    }
+
+    private func tickSpotlight() {
+        guard isEnabled, !isSnoozed, spotlightMode.includesCursor else { return }
+        guard !MissionControlDetector.isActive(), !currentApplicationIsExcluded else {
+            overlays.forEach { $0.clearSpotlight() }
+            return
+        }
+
+        let location = NSEvent.mouseLocation
+        guard location != lastSpotlightLocation else { return }
+        lastSpotlightLocation = location
+
+        for overlay in overlays {
+            overlay.updateSpotlight(
+                globalCenter: location,
+                radius: spotlightRadius,
+                feather: spotlightFeather
+            )
+        }
+    }
+
+    private func refreshSpotlight() {
+        lastSpotlightLocation = CGPoint(x: CGFloat.infinity, y: CGFloat.infinity)
+        tickSpotlight()
+    }
+
     func openAccessibilitySettings() {
         guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") else {
             return
@@ -568,14 +664,19 @@ final class OverlayController {
                 continue
             }
 
-            let cutout = focusedWindowFrame.flatMap { frame in
-                let intersection = frame.intersection(overlay.frame)
-                return intersection.isNull || intersection.isEmpty ? nil : intersection
-            } ?? ActiveWindowLocator.frontmostWindow(
-                on: overlay.targetScreen,
-                excluding: ProcessInfo.processInfo.processIdentifier,
-                preferredOwnerPID: observedPID
-            )?.cocoaFrame(on: overlay.targetScreen)
+            let cutout: CGRect?
+            if spotlightMode.includesWindow {
+                cutout = focusedWindowFrame.flatMap { frame in
+                    let intersection = frame.intersection(overlay.frame)
+                    return intersection.isNull || intersection.isEmpty ? nil : intersection
+                } ?? ActiveWindowLocator.frontmostWindow(
+                    on: overlay.targetScreen,
+                    excluding: ProcessInfo.processInfo.processIdentifier,
+                    preferredOwnerPID: observedPID
+                )?.cocoaFrame(on: overlay.targetScreen)
+            } else {
+                cutout = nil
+            }
             overlay.update(cutout: cutout, alpha: resolvedIntensity(for: overlay.targetScreen))
             overlay.restoreImmediately()
         }

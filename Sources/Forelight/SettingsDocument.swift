@@ -19,6 +19,9 @@ struct SettingsDocument: Codable, Equatable {
     var appIntensityEnabled: [String: Bool]?
     var displayIntensities: [String: Double]?
     var displayDimmingDisabled: [String: Bool]?
+    var spotlightMode: String?
+    var spotlightRadius: Double?
+    var spotlightFeather: Double?
     var focusGroups: [FocusGroup]?
 
     init(version: Int = SettingsDocument.currentVersion) {
@@ -48,6 +51,10 @@ struct SettingsDocument: Codable, Equatable {
             document.displayIntensities = raw.compactMapValues { ($0 as? NSNumber)?.doubleValue }
         }
         document.displayDimmingDisabled = defaults.dictionary(forKey: ForelightSettings.displayDimmingDisabledKey) as? [String: Bool]
+        document.spotlightMode = defaults.string(forKey: ForelightSettings.spotlightModeKey)
+        let radius = defaults.double(forKey: ForelightSettings.spotlightRadiusKey)
+        document.spotlightRadius = radius > 0 ? radius : nil
+        document.spotlightFeather = defaults.object(forKey: ForelightSettings.spotlightFeatherKey) as? Double
         if let data = defaults.data(forKey: ForelightSettings.focusGroupsKey) {
             document.focusGroups = try? JSONDecoder().decode([FocusGroup].self, from: data)
         }
@@ -91,6 +98,15 @@ struct SettingsDocument: Codable, Equatable {
         }
         if let displayDimmingDisabled {
             defaults.set(displayDimmingDisabled, forKey: ForelightSettings.displayDimmingDisabledKey)
+        }
+        if let spotlightMode {
+            defaults.set(spotlightMode, forKey: ForelightSettings.spotlightModeKey)
+        }
+        if let spotlightRadius {
+            defaults.set(spotlightRadius, forKey: ForelightSettings.spotlightRadiusKey)
+        }
+        if let spotlightFeather {
+            defaults.set(spotlightFeather, forKey: ForelightSettings.spotlightFeatherKey)
         }
         if let focusGroups, let data = try? JSONEncoder().encode(focusGroups) {
             defaults.set(data, forKey: ForelightSettings.focusGroupsKey)

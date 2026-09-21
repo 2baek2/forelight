@@ -55,7 +55,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             snoozeUntil: nil,
             focusGroups: [],
             activeGroupName: nil,
-            displays: []
+            displays: [],
+            spotlightMode: controller.spotlightMode,
+            spotlightRadius: controller.spotlightRadius,
+            spotlightFeather: controller.spotlightFeather
         )
         super.init()
     }
@@ -235,8 +238,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             if let name = query["name"] {
                 applyGroup(named: name)
             }
+        case "spotlight":
+            if let raw = query["mode"], let mode = spotlightMode(from: raw) {
+                setSpotlightMode(mode)
+            }
         default:
             break
+        }
+    }
+
+    private func spotlightMode(from value: String) -> SpotlightMode? {
+        switch value.lowercased() {
+        case "window", "off", "none":
+            return .window
+        case "cursor", "spotlight":
+            return .cursor
+        case "both", "window+cursor", "windowandcursor":
+            return .windowAndCursor
+        default:
+            return nil
         }
     }
 
@@ -307,6 +327,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         menu.addItem(appearanceItem)
         menu.addItem(.separator())
 
+        let spotlightItem = NSMenuItem(title: "Cursor Spotlight", action: nil, keyEquivalent: "")
+        let spotlightMenu = NSMenu()
+        for mode in SpotlightMode.allCases {
+            let item = NSMenuItem(title: mode.label, action: #selector(setSpotlightFromMenu(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = mode.rawValue
+            item.state = overlayController.spotlightMode == mode ? .on : .off
+            spotlightMenu.addItem(item)
+        }
+        spotlightItem.submenu = spotlightMenu
+        menu.addItem(spotlightItem)
+        menu.addItem(.separator())
+
         let groupsItem = NSMenuItem(title: "Focus Groups", action: nil, keyEquivalent: "")
         let groupsMenu = NSMenu()
         for group in overlayController.focusGroups {
@@ -373,6 +406,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         setAppearanceMode(mode)
     }
 
+    @objc private func setSpotlightFromMenu(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String,
+              let mode = SpotlightMode(rawValue: raw) else { return }
+        setSpotlightMode(mode)
+    }
+
     @objc private func snoozeFromMenu(_ sender: NSMenuItem) {
         snooze(forMinutes: sender.tag)
     }
@@ -433,6 +472,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         model.snoozeUntil = overlayController.snoozeUntilDate
         model.focusGroups = overlayController.focusGroups
         model.activeGroupName = overlayController.activeGroupName
+        model.spotlightMode = overlayController.spotlightMode
+        model.spotlightRadius = overlayController.spotlightRadius
+        model.spotlightFeather = overlayController.spotlightFeather
         model.displays = NSScreen.screens.compactMap { screen -> DisplayIntensityEntry? in
             guard let info = DisplayIdentifier.info(for: screen) else { return nil }
             return DisplayIntensityEntry(
@@ -771,6 +813,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         syncModel()
     }
 
+    private func setSpotlightMode(_ mode: SpotlightMode) {
+        overlayController.setSpotlightMode(mode)
+        refreshUI()
+    }
+
+    private func setSpotlightRadius(_ value: Double) {
+        overlayController.setSpotlightRadius(value)
+        syncModel()
+    }
+
+    private func setSpotlightFeather(_ value: Double) {
+        overlayController.setSpotlightFeather(value)
+        syncModel()
+    }
+
     private func setAppearanceMode(_ mode: AppearanceMode) {
         appearanceMode = mode
         UserDefaults.standard.set(mode.rawValue, forKey: ForelightSettings.appearanceModeKey)
@@ -871,6 +928,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                     onToggleMoving: { [weak self] value in self?.setHideWhileMoving(value) },
                     onFadeDurationChanged: { [weak self] value in self?.setFadeDuration(value) },
                     onRestoreDelayChanged: { [weak self] value in self?.setRestoreDelay(value) },
+                    onSpotlightModeChanged: { [weak self] mode in self?.setSpotlightMode(mode) },
+                    onSpotlightRadiusChanged: { [weak self] value in self?.setSpotlightRadius(value) },
+                    onSpotlightFeatherChanged: { [weak self] value in self?.setSpotlightFeather(value) },
                     onAppearanceModeChanged: { [weak self] mode in self?.setAppearanceMode(mode) },
                     onShortcutChanged: { [weak self] combo in self?.setShortcut(combo) },
                     onShortcutRecordingChanged: { [weak self] recording in self?.setShortcutRecording(recording) },
