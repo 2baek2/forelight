@@ -42,6 +42,7 @@ final class OverlayController {
     private var observedPID: pid_t = 0
     private var dragEndFailsafe: DispatchWorkItem?
     private var dragRestoreWorkItem: DispatchWorkItem?
+    private var isMissionControlActive = false
     private let ownPID = ProcessInfo.processInfo.processIdentifier
 
     init() {
@@ -226,6 +227,15 @@ final class OverlayController {
 
     private func refresh() {
         guard isEnabled else { return }
+
+        if MissionControlDetector.isActive() {
+            if !isMissionControlActive {
+                isMissionControlActive = true
+                overlays.forEach { $0.hideImmediately() }
+            }
+            return
+        }
+        isMissionControlActive = false
 
         if currentApplicationIsExcluded {
             overlays.forEach { $0.hideImmediately() }
@@ -546,6 +556,53 @@ final class OverlayController {
 
 private struct WindowSnapshot {
     let bounds: CGRect
+}
+
+private enum MissionControlDetector {
+    /// Mission Control is drawn by the Dock as one or more fullscreen, unnamed
+    /// windows at a high window layer. Detect those so the dim overlay can step
+    /// aside while Mission Control or App Exposé is open.
+    static func isActive() -> Bool {
+        guard let windowList = CGWindowListCopyWindowInfo(
+            [.optionOnScreenOnly, .excludeDesktopElements],
+            kCGNullWindowID
+        ) as? [[String: Any]] else {
+            return false
+        }
+
+        let screenSizes = NSScreen.screens.map { $0.frame.size }
+        guard !screenSizes.isEmpty else { return false }
+
+        let dockPID = NSRunningApplication
+            .runningApplications(withBundleIdentifier: "com.apple.dock")
+            .first?
+            .processIdentifier
+
+        var fullscreenDockWindows = 0
+
+        for info in windowList {
+            let ownerName = info[kCGWindowOwnerName as String] as? String
+            let ownerPID = info[kCGWindowOwnerPID as String] as? pid_t
+            let isDock = ownerName == "Dock" || (dockPID != nil && ownerPID == dockPID)
+            guard isDock else { continue }
+
+            guard let boundsDictionary = info[kCGWindowBounds as String] as? NSDictionary,
+                  let bounds = CGRect(dictionaryRepresentation: boundsDictionary),
+                  bounds.width > 0,
+                  bounds.height > 0 else {
+                continue
+            }
+
+            let isFullscreen = screenSizes.contains { size in
+                bounds.width >= size.width * 0.95 && bounds.height >= size.height * 0.95
+            }
+            if isFullscreen {
+                fullscreenDockWindows += 1
+            }
+        }
+
+        return fullscreenDockWindows >= 1
+    }
 }
 
 private enum ActiveWindowLocator {
