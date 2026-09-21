@@ -58,7 +58,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             displays: [],
             spotlightMode: controller.spotlightMode,
             spotlightRadius: controller.spotlightRadius,
-            spotlightFeather: controller.spotlightFeather
+            spotlightFeather: controller.spotlightFeather,
+            cutoutRadius: controller.cutoutRadius,
+            cutoutPadding: controller.cutoutPadding,
+            dimTint: controller.dimTint
         )
         super.init()
     }
@@ -160,21 +163,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         )
     }
 
+    private enum ShortcutAction: Sendable {
+        case toggle
+        case group(String)
+    }
+
     private func configureGlobalShortcut() {
         keyboardMonitors.forEach { NSEvent.removeMonitor($0) }
         keyboardMonitors.removeAll()
 
-        // Capture the shortcut by value so the check happens against the combo
-        // that was current when the event arrived, not a later edit.
-        let expected = shortcut
+        // Capture the bindings by value so the check happens against the combos
+        // that were current when the event arrived, not a later edit.
+        var bindings: [(combo: KeyCombo, action: ShortcutAction)] = [(shortcut, .toggle)]
+        for group in overlayController.focusGroups {
+            if let combo = group.shortcut {
+                bindings.append((combo, .group(group.name)))
+            }
+        }
+
         let handler: (NSEvent) -> Void = { [weak self] event in
             guard !event.isARepeat, self?.shortcutGate.isSuppressed != true else { return }
             let keyCode = event.keyCode
-            let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-            guard keyCode == expected.keyCode,
-                  modifiers.rawValue == expected.modifiers else { return }
+            let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask).rawValue
+            guard let binding = bindings.first(where: {
+                $0.combo.keyCode == keyCode && $0.combo.modifiers == modifiers
+            }) else {
+                return
+            }
+            let action = binding.action
             Task { @MainActor [weak self] in
-                self?.toggleEnabled()
+                switch action {
+                case .toggle:
+                    self?.toggleEnabled()
+                case .group(let name):
+                    self?.applyGroup(named: name)
+                }
             }
         }
 
@@ -475,6 +498,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         model.spotlightMode = overlayController.spotlightMode
         model.spotlightRadius = overlayController.spotlightRadius
         model.spotlightFeather = overlayController.spotlightFeather
+        model.cutoutRadius = overlayController.cutoutRadius
+        model.cutoutPadding = overlayController.cutoutPadding
+        model.dimTint = overlayController.dimTint
         model.displays = NSScreen.screens.compactMap { screen -> DisplayIntensityEntry? in
             guard let info = DisplayIdentifier.info(for: screen) else { return nil }
             return DisplayIntensityEntry(
@@ -549,12 +575,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private func saveCurrentAsGroup() {
         guard let name = promptForGroupName() else { return }
         overlayController.saveCurrentAsGroup(named: name)
+        configureGlobalShortcut()
         refreshUI()
     }
 
     private func deleteGroup(named name: String) {
         overlayController.deleteGroup(named: name)
+        configureGlobalShortcut()
         refreshUI()
+    }
+
+    private func setGroupShortcut(groupName: String, combo: KeyCombo?) {
+        overlayController.setGroupShortcut(groupName: groupName, combo: combo)
+        configureGlobalShortcut()
+        refreshUI()
+    }
+
+    private func setGroupShortcutRecording(_ recording: Bool) {
+        shortcutGate.setSuppressed(recording)
     }
 
     private func promptForGroupName() -> String? {
@@ -828,6 +866,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         syncModel()
     }
 
+    private func setCutoutRadius(_ value: Double) {
+        overlayController.setCutoutRadius(value)
+        syncModel()
+    }
+
+    private func setCutoutPadding(_ value: Double) {
+        overlayController.setCutoutPadding(value)
+        syncModel()
+    }
+
+    private func setDimTint(_ tint: DimTint) {
+        overlayController.setDimTint(tint)
+        refreshUI()
+    }
+
     private func setAppearanceMode(_ mode: AppearanceMode) {
         appearanceMode = mode
         UserDefaults.standard.set(mode.rawValue, forKey: ForelightSettings.appearanceModeKey)
@@ -931,6 +984,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                     onSpotlightModeChanged: { [weak self] mode in self?.setSpotlightMode(mode) },
                     onSpotlightRadiusChanged: { [weak self] value in self?.setSpotlightRadius(value) },
                     onSpotlightFeatherChanged: { [weak self] value in self?.setSpotlightFeather(value) },
+                    onCutoutRadiusChanged: { [weak self] value in self?.setCutoutRadius(value) },
+                    onCutoutPaddingChanged: { [weak self] value in self?.setCutoutPadding(value) },
+                    onDimTintChanged: { [weak self] tint in self?.setDimTint(tint) },
                     onAppearanceModeChanged: { [weak self] mode in self?.setAppearanceMode(mode) },
                     onShortcutChanged: { [weak self] combo in self?.setShortcut(combo) },
                     onShortcutRecordingChanged: { [weak self] recording in self?.setShortcutRecording(recording) },
@@ -948,6 +1004,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                     onApplyGroup: { [weak self] name in self?.applyGroup(named: name) },
                     onSaveGroup: { [weak self] in self?.saveCurrentAsGroup() },
                     onDeleteGroup: { [weak self] name in self?.deleteGroup(named: name) },
+                    onSetGroupShortcut: { [weak self] name, combo in self?.setGroupShortcut(groupName: name, combo: combo) },
+                    onGroupShortcutRecordingChanged: { [weak self] recording in self?.setGroupShortcutRecording(recording) },
                     onExportSettings: { [weak self] in self?.exportSettings() },
                     onImportSettings: { [weak self] in self?.importSettings() },
                     onResetSettings: { [weak self] in self?.resetSettings() },

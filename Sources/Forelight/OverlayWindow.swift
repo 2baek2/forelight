@@ -1,6 +1,6 @@
 import AppKit
 
-enum SpotlightMode: String, CaseIterable, Identifiable {
+enum SpotlightMode: String, CaseIterable, Codable, Identifiable {
     case window
     case cursor
     case windowAndCursor
@@ -17,6 +17,38 @@ enum SpotlightMode: String, CaseIterable, Identifiable {
 
     var includesWindow: Bool { self != .cursor }
     var includesCursor: Bool { self != .window }
+}
+
+enum DimTint: String, CaseIterable, Identifiable {
+    case black
+    case warm
+    case cool
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .black: return "Black"
+        case .warm: return "Warm"
+        case .cool: return "Cool"
+        }
+    }
+
+    var color: NSColor {
+        switch self {
+        case .black: return .black
+        case .warm: return NSColor(srgbRed: 0.11, green: 0.05, blue: 0.0, alpha: 1)
+        case .cool: return NSColor(srgbRed: 0.0, green: 0.02, blue: 0.11, alpha: 1)
+        }
+    }
+}
+
+struct DimStyle {
+    var cornerRadius: CGFloat
+    var padding: CGFloat
+    var tint: DimTint
+
+    static let `default` = DimStyle(cornerRadius: 8, padding: 2, tint: .black)
 }
 
 struct Spotlight {
@@ -58,29 +90,27 @@ final class OverlayWindow: NSWindow {
     override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
 
-    func update(cutout: CGRect?, alpha: Double) {
+    func update(cutout: CGRect?, alpha: Double, style: DimStyle) {
         overlayView.cutout = cutout.map { convertToLocalCoordinates($0) }
         overlayView.alpha = alpha
+        overlayView.style = style
         overlayView.needsDisplay = true
     }
 
     func updateSpotlight(globalCenter: CGPoint, radius: CGFloat, feather: CGFloat) {
         guard frame.contains(globalCenter) else {
-            clearSpotlight()
+            overlayView.setSpotlight(nil)
             return
         }
         let local = CGPoint(
             x: globalCenter.x - frame.origin.x,
             y: globalCenter.y - frame.origin.y
         )
-        overlayView.spotlight = Spotlight(center: local, radius: radius, feather: feather)
-        overlayView.needsDisplay = true
+        overlayView.setSpotlight(Spotlight(center: local, radius: radius, feather: feather))
     }
 
     func clearSpotlight() {
-        guard overlayView.spotlight != nil else { return }
-        overlayView.spotlight = nil
-        overlayView.needsDisplay = true
+        overlayView.setSpotlight(nil)
     }
 
     func fadeOut(duration: TimeInterval) {
@@ -141,9 +171,42 @@ final class OverlayWindow: NSWindow {
 final class OverlayView: NSView {
     var cutout: CGRect?
     var alpha: Double = 0.45
-    var spotlight: Spotlight?
+    var style: DimStyle = .default
+    private(set) var spotlight: Spotlight?
 
     override var isOpaque: Bool { false }
+
+    /// Updates the cursor spotlight and invalidates only the affected region so
+    /// moving the pointer does not redraw the whole screen.
+    func setSpotlight(_ newValue: Spotlight?) {
+        let oldRect = spotlightDirtyRect(for: spotlight)
+        let newRect = spotlightDirtyRect(for: newValue)
+        spotlight = newValue
+
+        switch (oldRect, newRect) {
+        case (nil, nil):
+            return
+        case let (old?, nil):
+            setNeedsDisplay(old)
+        case let (nil, new?):
+            setNeedsDisplay(new)
+        case let (old?, new?):
+            setNeedsDisplay(old.union(new))
+        }
+    }
+
+    private func spotlightDirtyRect(for spotlight: Spotlight?) -> CGRect? {
+        guard let spotlight, spotlight.radius > 0 else { return nil }
+        let margin = spotlight.radius + 2
+        let rect = CGRect(
+            x: spotlight.center.x - margin,
+            y: spotlight.center.y - margin,
+            width: margin * 2,
+            height: margin * 2
+        )
+        let clipped = rect.intersection(bounds)
+        return clipped.isNull || clipped.isEmpty ? nil : clipped
+    }
 
     override func draw(_ dirtyRect: NSRect) {
         guard let context = NSGraphicsContext.current?.cgContext else { return }
@@ -156,16 +219,16 @@ final class OverlayView: NSView {
             if !safeCutout.isNull, !safeCutout.isEmpty {
                 overlayPath.append(
                     NSBezierPath(
-                        roundedRect: safeCutout.insetBy(dx: -2, dy: -2),
-                        xRadius: 8,
-                        yRadius: 8
+                        roundedRect: safeCutout.insetBy(dx: -style.padding, dy: -style.padding),
+                        xRadius: style.cornerRadius,
+                        yRadius: style.cornerRadius
                     )
                 )
                 overlayPath.windingRule = .evenOdd
             }
         }
 
-        NSColor.black.withAlphaComponent(alpha).setFill()
+        style.tint.color.withAlphaComponent(alpha).setFill()
         overlayPath.fill()
 
         if let spotlight, spotlight.radius > 0 {
@@ -196,8 +259,8 @@ final class OverlayView: NSView {
         let inner = min(max(radius - spotlight.feather, 0), radius)
         let solidStop = min(max(inner / radius, 0), 0.999)
 
-        let opaque = NSColor.black.withAlphaComponent(1).cgColor
-        let clear = NSColor.black.withAlphaComponent(0).cgColor
+        let opaque = style.tint.color.withAlphaComponent(1).cgColor
+        let clear = style.tint.color.withAlphaComponent(0).cgColor
         guard let gradient = CGGradient(
             colorsSpace: CGColorSpaceCreateDeviceRGB(),
             colors: [opaque, opaque, clear] as CFArray,

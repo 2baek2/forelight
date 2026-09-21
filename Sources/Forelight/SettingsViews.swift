@@ -224,6 +224,9 @@ struct SettingsView: View {
     let onSpotlightModeChanged: (SpotlightMode) -> Void
     let onSpotlightRadiusChanged: (Double) -> Void
     let onSpotlightFeatherChanged: (Double) -> Void
+    let onCutoutRadiusChanged: (Double) -> Void
+    let onCutoutPaddingChanged: (Double) -> Void
+    let onDimTintChanged: (DimTint) -> Void
     let onAppearanceModeChanged: (AppearanceMode) -> Void
     let onShortcutChanged: (KeyCombo) -> Void
     let onShortcutRecordingChanged: (Bool) -> Void
@@ -241,6 +244,8 @@ struct SettingsView: View {
     let onApplyGroup: (String) -> Void
     let onSaveGroup: () -> Void
     let onDeleteGroup: (String) -> Void
+    let onSetGroupShortcut: (String, KeyCombo?) -> Void
+    let onGroupShortcutRecordingChanged: (Bool) -> Void
     let onExportSettings: () -> Void
     let onImportSettings: () -> Void
     let onResetSettings: () -> Void
@@ -437,6 +442,45 @@ struct SettingsView: View {
                             range: ForelightSettings.spotlightFeatherRange,
                             suffix: " pt",
                             onChanged: onSpotlightFeatherChanged
+                        )
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    SectionHeader(title: "Dim style")
+                    Card {
+                        HStack {
+                            Text("Tint")
+                                .foregroundStyle(ForelightStyle.text)
+                            Spacer()
+                            Picker("", selection: Binding(
+                                get: { model.dimTint },
+                                set: { tint in onDimTintChanged(tint) }
+                            )) {
+                                ForEach(DimTint.allCases) { tint in
+                                    Text(tint.label).tag(tint)
+                                }
+                            }
+                            .pickerStyle(.segmented)
+                            .labelsHidden()
+                            .frame(width: 220)
+                        }
+                        .padding(12)
+                        CardDivider()
+                        IntegerSliderRow(
+                            title: "Corner radius",
+                            value: model.cutoutRadius,
+                            range: ForelightSettings.cutoutRadiusRange,
+                            suffix: " pt",
+                            onChanged: onCutoutRadiusChanged
+                        )
+                        CardDivider()
+                        IntegerSliderRow(
+                            title: "Padding",
+                            value: model.cutoutPadding,
+                            range: ForelightSettings.cutoutPaddingRange,
+                            suffix: " pt",
+                            onChanged: onCutoutPaddingChanged
                         )
                     }
                 }
@@ -675,6 +719,21 @@ struct SettingsView: View {
                                 .frame(width: 20)
                             Text(group.name)
                             Spacer()
+                            ShortcutRecorder(
+                                combo: group.shortcut,
+                                onChange: { combo in onSetGroupShortcut(group.name, combo) },
+                                onRecordingChanged: onGroupShortcutRecordingChanged
+                            )
+                            .frame(width: 110, height: 22)
+                            Button {
+                                onSetGroupShortcut(group.name, nil)
+                            } label: {
+                                Image(systemName: "xmark.circle")
+                            }
+                            .buttonStyle(.borderless)
+                            .disabled(group.shortcut == nil)
+                            .help("Clear this group's shortcut")
+
                             Button("Apply") { onApplyGroup(group.name) }
                                 .buttonStyle(.bordered)
                                 .controlSize(.small)

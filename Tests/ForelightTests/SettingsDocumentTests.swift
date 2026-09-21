@@ -18,6 +18,9 @@ struct SettingsDocumentTests {
         document.spotlightMode = "windowAndCursor"
         document.spotlightRadius = 140
         document.spotlightFeather = 30
+        document.cutoutRadius = 12
+        document.cutoutPadding = 6
+        document.dimTint = "warm"
         document.focusGroups = [
             FocusGroup(name: "Coding", intensity: 0.4, exceptions: [:], appIntensities: [:], appIntensityEnabled: [:])
         ]

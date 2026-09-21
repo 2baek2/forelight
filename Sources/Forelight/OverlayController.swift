@@ -18,11 +18,16 @@ enum ForelightSettings {
     static let spotlightModeKey = "spotlightMode"
     static let spotlightRadiusKey = "spotlightRadius"
     static let spotlightFeatherKey = "spotlightFeather"
+    static let cutoutRadiusKey = "cutoutCornerRadius"
+    static let cutoutPaddingKey = "cutoutPadding"
+    static let dimTintKey = "dimTint"
     static let focusGroupsKey = "focusGroups"
     static let hasCompletedOnboardingKey = "hasCompletedOnboarding"
     static let intensityRange: ClosedRange<Double> = 0.10...0.90
     static let spotlightRadiusRange: ClosedRange<Double> = 40...400
     static let spotlightFeatherRange: ClosedRange<Double> = 0...160
+    static let cutoutRadiusRange: ClosedRange<Double> = 0...40
+    static let cutoutPaddingRange: ClosedRange<Double> = 0...40
 
     /// Every key that holds user settings, used by export, import and reset.
     static let allKeys: [String] = [
@@ -41,6 +46,9 @@ enum ForelightSettings {
         spotlightModeKey,
         spotlightRadiusKey,
         spotlightFeatherKey,
+        cutoutRadiusKey,
+        cutoutPaddingKey,
+        dimTintKey,
         focusGroupsKey
     ]
 
@@ -83,6 +91,9 @@ final class OverlayController {
     private(set) var spotlightMode: SpotlightMode
     private(set) var spotlightRadius: Double
     private(set) var spotlightFeather: Double
+    private(set) var cutoutRadius: Double
+    private(set) var cutoutPadding: Double
+    private(set) var dimTint: DimTint
     private var isEnabled = true
     private var exceptions: [String: Bool]
     private var appIntensities: [String: Double]
@@ -155,6 +166,9 @@ final class OverlayController {
         let savedRadius = defaults.double(forKey: ForelightSettings.spotlightRadiusKey)
         spotlightRadius = savedRadius > 0 ? savedRadius : 120
         spotlightFeather = defaults.object(forKey: ForelightSettings.spotlightFeatherKey) as? Double ?? 40
+        cutoutRadius = defaults.object(forKey: ForelightSettings.cutoutRadiusKey) as? Double ?? 8
+        cutoutPadding = defaults.object(forKey: ForelightSettings.cutoutPaddingKey) as? Double ?? 2
+        dimTint = DimTint(rawValue: defaults.string(forKey: ForelightSettings.dimTintKey) ?? "") ?? .black
     }
 
     var currentApplicationName: String? {
@@ -323,12 +337,19 @@ final class OverlayController {
     var focusGroups: [FocusGroup] { focusGroupsStorage }
 
     func saveCurrentAsGroup(named name: String) {
+        let existingShortcut = focusGroupsStorage.first(where: { $0.name == name })?.shortcut
         let group = FocusGroup(
             name: name,
             intensity: intensity,
             exceptions: exceptions,
             appIntensities: appIntensities,
-            appIntensityEnabled: appIntensityEnabled
+            appIntensityEnabled: appIntensityEnabled,
+            spotlightMode: spotlightMode,
+            spotlightRadius: spotlightRadius,
+            spotlightFeather: spotlightFeather,
+            displayIntensities: displayIntensities,
+            displayDimmingDisabled: displayDimmingDisabled,
+            shortcut: existingShortcut
         )
         if let index = focusGroupsStorage.firstIndex(where: { $0.name == name }) {
             focusGroupsStorage[index] = group
@@ -346,10 +367,32 @@ final class OverlayController {
         exceptions = group.exceptions
         appIntensities = group.appIntensities
         appIntensityEnabled = group.appIntensityEnabled
+        if let mode = group.spotlightMode { spotlightMode = mode }
+        if let radius = group.spotlightRadius { spotlightRadius = radius }
+        if let feather = group.spotlightFeather { spotlightFeather = feather }
+        if let displays = group.displayIntensities { displayIntensities = displays }
+        if let disabled = group.displayDimmingDisabled { displayDimmingDisabled = disabled }
+
         persistExceptions()
         persistAppIntensities()
+        persistDisplayIntensities()
+        persistSpotlight()
         activeGroupName = name
+        updateSpotlightTimer()
         refresh()
+    }
+
+    func setGroupShortcut(groupName: String, combo: KeyCombo?) {
+        guard let index = focusGroupsStorage.firstIndex(where: { $0.name == groupName }) else { return }
+        if let combo {
+            for other in focusGroupsStorage.indices where other != index {
+                if focusGroupsStorage[other].shortcut == combo {
+                    focusGroupsStorage[other].shortcut = nil
+                }
+            }
+        }
+        focusGroupsStorage[index].shortcut = combo
+        persistFocusGroups()
     }
 
     func deleteGroup(named name: String) {
@@ -417,6 +460,9 @@ final class OverlayController {
         let savedRadius = defaults.double(forKey: ForelightSettings.spotlightRadiusKey)
         spotlightRadius = savedRadius > 0 ? savedRadius : 120
         spotlightFeather = defaults.object(forKey: ForelightSettings.spotlightFeatherKey) as? Double ?? 40
+        cutoutRadius = defaults.object(forKey: ForelightSettings.cutoutRadiusKey) as? Double ?? 8
+        cutoutPadding = defaults.object(forKey: ForelightSettings.cutoutPaddingKey) as? Double ?? 2
+        dimTint = DimTint(rawValue: defaults.string(forKey: ForelightSettings.dimTintKey) ?? "") ?? .black
         activeGroupName = nil
         updateSpotlightTimer()
         refresh()
@@ -515,7 +561,7 @@ final class OverlayController {
 
     func setSpotlightMode(_ mode: SpotlightMode) {
         spotlightMode = mode
-        UserDefaults.standard.set(mode.rawValue, forKey: ForelightSettings.spotlightModeKey)
+        persistSpotlight()
         updateSpotlightTimer()
         refresh()
     }
@@ -525,7 +571,7 @@ final class OverlayController {
             max(value, ForelightSettings.spotlightRadiusRange.lowerBound),
             ForelightSettings.spotlightRadiusRange.upperBound
         )
-        UserDefaults.standard.set(spotlightRadius, forKey: ForelightSettings.spotlightRadiusKey)
+        persistSpotlight()
         refreshSpotlight()
     }
 
@@ -534,8 +580,44 @@ final class OverlayController {
             max(value, ForelightSettings.spotlightFeatherRange.lowerBound),
             ForelightSettings.spotlightFeatherRange.upperBound
         )
-        UserDefaults.standard.set(spotlightFeather, forKey: ForelightSettings.spotlightFeatherKey)
+        persistSpotlight()
         refreshSpotlight()
+    }
+
+    private func persistSpotlight() {
+        let defaults = UserDefaults.standard
+        defaults.set(spotlightMode.rawValue, forKey: ForelightSettings.spotlightModeKey)
+        defaults.set(spotlightRadius, forKey: ForelightSettings.spotlightRadiusKey)
+        defaults.set(spotlightFeather, forKey: ForelightSettings.spotlightFeatherKey)
+        activeGroupName = nil
+    }
+
+    func setCutoutRadius(_ value: Double) {
+        cutoutRadius = min(
+            max(value, ForelightSettings.cutoutRadiusRange.lowerBound),
+            ForelightSettings.cutoutRadiusRange.upperBound
+        )
+        UserDefaults.standard.set(cutoutRadius, forKey: ForelightSettings.cutoutRadiusKey)
+        refresh()
+    }
+
+    func setCutoutPadding(_ value: Double) {
+        cutoutPadding = min(
+            max(value, ForelightSettings.cutoutPaddingRange.lowerBound),
+            ForelightSettings.cutoutPaddingRange.upperBound
+        )
+        UserDefaults.standard.set(cutoutPadding, forKey: ForelightSettings.cutoutPaddingKey)
+        refresh()
+    }
+
+    func setDimTint(_ tint: DimTint) {
+        dimTint = tint
+        UserDefaults.standard.set(tint.rawValue, forKey: ForelightSettings.dimTintKey)
+        refresh()
+    }
+
+    private var dimStyle: DimStyle {
+        DimStyle(cornerRadius: cutoutRadius, padding: cutoutPadding, tint: dimTint)
     }
 
     private func updateSpotlightTimer() {
@@ -563,7 +645,10 @@ final class OverlayController {
         }
 
         let location = NSEvent.mouseLocation
-        guard location != lastSpotlightLocation else { return }
+        if abs(location.x - lastSpotlightLocation.x) < 0.5,
+           abs(location.y - lastSpotlightLocation.y) < 0.5 {
+            return
+        }
         lastSpotlightLocation = location
 
         for overlay in overlays {
@@ -677,7 +762,11 @@ final class OverlayController {
             } else {
                 cutout = nil
             }
-            overlay.update(cutout: cutout, alpha: resolvedIntensity(for: overlay.targetScreen))
+            overlay.update(
+                cutout: cutout,
+                alpha: resolvedIntensity(for: overlay.targetScreen),
+                style: dimStyle
+            )
             overlay.restoreImmediately()
         }
     }

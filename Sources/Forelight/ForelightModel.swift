@@ -66,6 +66,9 @@ final class ForelightModel: ObservableObject {
     @Published var spotlightMode: SpotlightMode
     @Published var spotlightRadius: Double
     @Published var spotlightFeather: Double
+    @Published var cutoutRadius: Double
+    @Published var cutoutPadding: Double
+    @Published var dimTint: DimTint
 
     init(
         isEnabled: Bool,
@@ -90,7 +93,10 @@ final class ForelightModel: ObservableObject {
         displays: [DisplayIntensityEntry],
         spotlightMode: SpotlightMode,
         spotlightRadius: Double,
-        spotlightFeather: Double
+        spotlightFeather: Double,
+        cutoutRadius: Double,
+        cutoutPadding: Double,
+        dimTint: DimTint
     ) {
         self.isEnabled = isEnabled
         self.currentApplicationName = currentApplicationName
@@ -115,5 +121,8 @@ final class ForelightModel: ObservableObject {
         self.spotlightMode = spotlightMode
         self.spotlightRadius = spotlightRadius
         self.spotlightFeather = spotlightFeather
+        self.cutoutRadius = cutoutRadius
+        self.cutoutPadding = cutoutPadding
+        self.dimTint = dimTint
     }
 }

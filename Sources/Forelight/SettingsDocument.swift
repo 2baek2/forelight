@@ -22,6 +22,9 @@ struct SettingsDocument: Codable, Equatable {
     var spotlightMode: String?
     var spotlightRadius: Double?
     var spotlightFeather: Double?
+    var cutoutRadius: Double?
+    var cutoutPadding: Double?
+    var dimTint: String?
     var focusGroups: [FocusGroup]?
 
     init(version: Int = SettingsDocument.currentVersion) {
@@ -55,6 +58,9 @@ struct SettingsDocument: Codable, Equatable {
         let radius = defaults.double(forKey: ForelightSettings.spotlightRadiusKey)
         document.spotlightRadius = radius > 0 ? radius : nil
         document.spotlightFeather = defaults.object(forKey: ForelightSettings.spotlightFeatherKey) as? Double
+        document.cutoutRadius = defaults.object(forKey: ForelightSettings.cutoutRadiusKey) as? Double
+        document.cutoutPadding = defaults.object(forKey: ForelightSettings.cutoutPaddingKey) as? Double
+        document.dimTint = defaults.string(forKey: ForelightSettings.dimTintKey)
         if let data = defaults.data(forKey: ForelightSettings.focusGroupsKey) {
             document.focusGroups = try? JSONDecoder().decode([FocusGroup].self, from: data)
         }
@@ -107,6 +113,15 @@ struct SettingsDocument: Codable, Equatable {
         }
         if let spotlightFeather {
             defaults.set(spotlightFeather, forKey: ForelightSettings.spotlightFeatherKey)
+        }
+        if let cutoutRadius {
+            defaults.set(cutoutRadius, forKey: ForelightSettings.cutoutRadiusKey)
+        }
+        if let cutoutPadding {
+            defaults.set(cutoutPadding, forKey: ForelightSettings.cutoutPaddingKey)
+        }
+        if let dimTint {
+            defaults.set(dimTint, forKey: ForelightSettings.dimTintKey)
         }
         if let focusGroups, let data = try? JSONEncoder().encode(focusGroups) {
             defaults.set(data, forKey: ForelightSettings.focusGroupsKey)

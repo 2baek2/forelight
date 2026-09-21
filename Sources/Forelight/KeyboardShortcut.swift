@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-struct KeyCombo: Equatable, Codable {
+struct KeyCombo: Equatable, Codable, Sendable {
     var keyCode: UInt16
     var modifiers: UInt
     var keyEquivalent: String
@@ -42,7 +42,7 @@ struct KeyCombo: Equatable, Codable {
 }
 
 struct ShortcutRecorder: NSViewRepresentable {
-    let combo: KeyCombo
+    let combo: KeyCombo?
     let onChange: (KeyCombo) -> Void
     let onRecordingChanged: (Bool) -> Void
 
