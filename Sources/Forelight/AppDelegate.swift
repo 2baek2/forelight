@@ -12,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var settingsHostingController: NSHostingController<SettingsView>?
     private var enabled: Bool
     private var appearanceMode: AppearanceMode
+    private var shortcut: KeyCombo
     private var activationObserver: NSObjectProtocol?
     private var terminationObserver: NSObjectProtocol?
     private var keyboardMonitors: [Any] = []
@@ -23,6 +24,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         appearanceMode = AppearanceMode(
             rawValue: UserDefaults.standard.string(forKey: ForelightSettings.appearanceModeKey) ?? ""
         ) ?? .dark
+        if let data = UserDefaults.standard.data(forKey: ForelightSettings.shortcutKey),
+           let savedShortcut = try? JSONDecoder().decode(KeyCombo.self, from: data) {
+            shortcut = savedShortcut
+        } else {
+            shortcut = .default
+        }
         model = ForelightModel(
             isEnabled: enabled,
             currentApplicationName: nil,
@@ -33,7 +40,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             fadeDuration: controller.fadeDuration,
             restoreDelay: controller.restoreDelay,
             exceptions: [],
-            appearanceMode: appearanceMode
+            appearanceMode: appearanceMode,
+            shortcut: shortcut
         )
         super.init()
     }
@@ -127,12 +135,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     private func configureGlobalShortcut() {
         let handler: (NSEvent) -> Void = { [weak self] event in
+            let keyCode = event.keyCode
             let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-            guard event.keyCode == 3,
-                  modifiers == [.command, .option],
-                  !event.isARepeat else { return }
+            let isRepeat = event.isARepeat
             Task { @MainActor [weak self] in
-                self?.toggleEnabled()
+                guard let self,
+                      !isRepeat,
+                      keyCode == self.shortcut.keyCode,
+                      modifiers.rawValue == self.shortcut.modifiers else { return }
+                self.toggleEnabled()
             }
         }
 
@@ -184,6 +195,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         model.fadeDuration = overlayController.fadeDuration
         model.restoreDelay = overlayController.restoreDelay
         model.appearanceMode = appearanceMode
+        model.shortcut = shortcut
         model.exceptions = overlayController.exceptionStates
             .map { bundleID, isEnabled in
                 let info = AppInfoResolver.resolve(bundleID: bundleID)
@@ -248,6 +260,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         syncModel()
     }
 
+    private func setShortcut(_ combo: KeyCombo) {
+        shortcut = combo
+        if let data = try? JSONEncoder().encode(combo) {
+            UserDefaults.standard.set(data, forKey: ForelightSettings.shortcutKey)
+        }
+        syncModel()
+    }
+
     private func setException(bundleID: String, enabled: Bool) {
         overlayController.setException(bundleID: bundleID, enabled: enabled)
         refreshUI()
@@ -304,6 +324,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                     onFadeDurationChanged: { [weak self] value in self?.setFadeDuration(value) },
                     onRestoreDelayChanged: { [weak self] value in self?.setRestoreDelay(value) },
                     onAppearanceModeChanged: { [weak self] mode in self?.setAppearanceMode(mode) },
+                    onShortcutChanged: { [weak self] combo in self?.setShortcut(combo) },
                     onSetException: { [weak self] bundleID, enabled in self?.setException(bundleID: bundleID, enabled: enabled) },
                     onRemoveException: { [weak self] bundleID in self?.removeException(bundleID: bundleID) },
                     onAddException: { [weak self] in self?.addExceptionFromPanel() },

@@ -135,6 +135,7 @@ struct SettingsView: View {
     let onFadeDurationChanged: (Double) -> Void
     let onRestoreDelayChanged: (Double) -> Void
     let onAppearanceModeChanged: (AppearanceMode) -> Void
+    let onShortcutChanged: (KeyCombo) -> Void
     let onSetException: (String, Bool) -> Void
     let onRemoveException: (String) -> Void
     let onAddException: () -> Void
@@ -197,12 +198,13 @@ struct SettingsView: View {
                 CardDivider()
                 CardRow(
                     title: "Toggle focus mode",
-                    subtitle: "Works from any app",
+                    subtitle: "Click, then press a new shortcut",
                     systemImage: "keyboard"
                 ) {
-                    Text("⌥⌘F")
-                        .font(.system(.body, design: .monospaced))
-                        .foregroundStyle(ForelightStyle.muted)
+                    ShortcutRecorder(combo: model.shortcut) { combo in
+                        onShortcutChanged(combo)
+                    }
+                    .frame(width: 150, height: 24)
                 }
                 CardDivider()
                 CardRow(

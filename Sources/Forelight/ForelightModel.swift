@@ -35,6 +35,7 @@ final class ForelightModel: ObservableObject {
     @Published var restoreDelay: Double
     @Published var exceptions: [ExceptionEntry]
     @Published var appearanceMode: AppearanceMode
+    @Published var shortcut: KeyCombo
 
     init(
         isEnabled: Bool,
@@ -46,7 +47,8 @@ final class ForelightModel: ObservableObject {
         fadeDuration: Double,
         restoreDelay: Double,
         exceptions: [ExceptionEntry],
-        appearanceMode: AppearanceMode
+        appearanceMode: AppearanceMode,
+        shortcut: KeyCombo
     ) {
         self.isEnabled = isEnabled
         self.currentApplicationName = currentApplicationName
@@ -58,5 +60,6 @@ final class ForelightModel: ObservableObject {
         self.restoreDelay = restoreDelay
         self.exceptions = exceptions
         self.appearanceMode = appearanceMode
+        self.shortcut = shortcut
     }
 }
