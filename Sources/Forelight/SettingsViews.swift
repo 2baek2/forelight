@@ -233,7 +233,7 @@ struct SettingsView: View {
     let onRemoveAppIntensity: (String) -> Void
     let onAddAppIntensity: () -> Void
     let onSetDisplayIntensity: (String, Double) -> Void
-    let onSetDisplayIntensityEnabled: (String, Bool) -> Void
+    let onSetDisplayDimmingEnabled: (String, Bool) -> Void
     let onRemoveDisplayIntensity: (String) -> Void
     let onApplyGroup: (String) -> Void
     let onSaveGroup: () -> Void
@@ -544,14 +544,19 @@ struct SettingsView: View {
                 List(selection: $selectedDisplayID) {
                     ForEach(model.displays) { display in
                         HStack(spacing: 10) {
-                            Image(systemName: "display")
-                                .foregroundStyle(ForelightStyle.muted2)
+                            Image(systemName: display.isDimmingEnabled ? "display" : "display.slash")
+                                .foregroundStyle(display.isDimmingEnabled ? ForelightStyle.muted2 : ForelightStyle.muted)
                                 .frame(width: 20)
                             Text(display.name)
+                            if display.hasOverride {
+                                Text("Custom")
+                                    .font(.caption)
+                                    .foregroundStyle(ForelightStyle.muted)
+                            }
                             Spacer()
                             Toggle("", isOn: Binding(
-                                get: { display.isEnabled },
-                                set: { value in onSetDisplayIntensityEnabled(display.id, value) }
+                                get: { display.isDimmingEnabled },
+                                set: { value in onSetDisplayDimmingEnabled(display.id, value) }
                             ))
                             .labelsHidden()
                             .toggleStyle(.switch)
@@ -564,7 +569,7 @@ struct SettingsView: View {
                                 in: ForelightSettings.intensityRange
                             )
                             .frame(width: 150)
-                            .disabled(!display.isEnabled)
+                            .disabled(!display.isDimmingEnabled)
                             Text("\(Int((display.value * 100).rounded()))%")
                                 .font(.caption.monospacedDigit())
                                 .foregroundStyle(ForelightStyle.muted)
@@ -602,7 +607,7 @@ struct SettingsView: View {
 
                     Spacer()
 
-                    Text("A display override wins over an app override.")
+                    Text("Turn a switch off to skip that display. A display override wins over an app override.")
                         .font(.caption)
                         .foregroundStyle(ForelightStyle.muted)
                 }

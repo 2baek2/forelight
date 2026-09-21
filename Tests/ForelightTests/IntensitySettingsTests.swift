@@ -34,19 +34,17 @@ struct IntensitySettingsTests {
             global: 0.5,
             appOverride: 0.2,
             appEnabled: true,
-            displayOverride: 0.8,
-            displayEnabled: true
+            displayOverride: 0.8
         )
         #expect(resolved == 0.8)
     }
 
-    @Test func disabledDisplayFallsBackToApp() {
+    @Test func missingDisplayOverrideFallsBackToApp() {
         let resolved = ForelightSettings.resolvedIntensity(
             global: 0.5,
             appOverride: 0.2,
             appEnabled: true,
-            displayOverride: 0.8,
-            displayEnabled: false
+            displayOverride: nil
         )
         #expect(resolved == 0.2)
     }
@@ -56,8 +54,7 @@ struct IntensitySettingsTests {
             global: 0.5,
             appOverride: nil,
             appEnabled: false,
-            displayOverride: nil,
-            displayEnabled: false
+            displayOverride: nil
         )
         #expect(resolved == 0.5)
     }

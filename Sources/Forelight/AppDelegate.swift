@@ -433,13 +433,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         model.snoozeUntil = overlayController.snoozeUntilDate
         model.focusGroups = overlayController.focusGroups
         model.activeGroupName = overlayController.activeGroupName
-        model.displays = NSScreen.screens.compactMap { screen in
+        model.displays = NSScreen.screens.compactMap { screen -> DisplayIntensityEntry? in
             guard let info = DisplayIdentifier.info(for: screen) else { return nil }
             return DisplayIntensityEntry(
                 id: info.id,
                 name: info.name,
                 value: overlayController.displayIntensityValue(for: info.id),
-                isEnabled: overlayController.isDisplayIntensityEnabled(info.id)
+                hasOverride: overlayController.displayIntensityStates[info.id] != nil,
+                isDimmingEnabled: overlayController.isDisplayDimmingEnabled(info.id)
             )
         }
         model.effectiveIntensity = overlayController.displayedIntensity
@@ -740,8 +741,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         syncModel()
     }
 
-    private func setDisplayIntensityEnabled(displayID: String, enabled: Bool) {
-        overlayController.setDisplayIntensityEnabled(displayID: displayID, enabled: enabled)
+    private func setDisplayDimmingEnabled(displayID: String, enabled: Bool) {
+        overlayController.setDisplayDimmingEnabled(displayID: displayID, enabled: enabled)
         refreshUI()
     }
 
@@ -882,7 +883,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                     onRemoveAppIntensity: { [weak self] bundleID in self?.removeAppIntensity(bundleID: bundleID) },
                     onAddAppIntensity: { [weak self] in self?.addAppIntensityFromPanel() },
                     onSetDisplayIntensity: { [weak self] displayID, value in self?.setDisplayIntensity(displayID: displayID, value: value) },
-                    onSetDisplayIntensityEnabled: { [weak self] displayID, enabled in self?.setDisplayIntensityEnabled(displayID: displayID, enabled: enabled) },
+                    onSetDisplayDimmingEnabled: { [weak self] displayID, enabled in self?.setDisplayDimmingEnabled(displayID: displayID, enabled: enabled) },
                     onRemoveDisplayIntensity: { [weak self] displayID in self?.removeDisplayIntensity(displayID: displayID) },
                     onApplyGroup: { [weak self] name in self?.applyGroup(named: name) },
                     onSaveGroup: { [weak self] in self?.saveCurrentAsGroup() },

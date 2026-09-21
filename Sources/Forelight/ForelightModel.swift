@@ -24,7 +24,8 @@ struct DisplayIntensityEntry: Identifiable {
     let id: String
     let name: String
     var value: Double
-    var isEnabled: Bool
+    var hasOverride: Bool
+    var isDimmingEnabled: Bool
 }
 
 enum AppInfoResolver {

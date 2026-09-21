@@ -14,7 +14,7 @@ enum ForelightSettings {
     static let appIntensitiesKey = "appIntensities"
     static let appIntensityEnabledKey = "appIntensityEnabled"
     static let displayIntensitiesKey = "displayIntensities"
-    static let displayIntensityEnabledKey = "displayIntensityEnabled"
+    static let displayDimmingDisabledKey = "displayDimmingDisabled"
     static let focusGroupsKey = "focusGroups"
     static let hasCompletedOnboardingKey = "hasCompletedOnboarding"
     static let intensityRange: ClosedRange<Double> = 0.10...0.90
@@ -32,7 +32,7 @@ enum ForelightSettings {
         appIntensitiesKey,
         appIntensityEnabledKey,
         displayIntensitiesKey,
-        displayIntensityEnabledKey,
+        displayDimmingDisabledKey,
         focusGroupsKey
     ]
 
@@ -51,10 +51,9 @@ enum ForelightSettings {
         global: Double,
         appOverride: Double?,
         appEnabled: Bool,
-        displayOverride: Double?,
-        displayEnabled: Bool
+        displayOverride: Double?
     ) -> Double {
-        if let displayOverride, displayEnabled {
+        if let displayOverride {
             return displayOverride
         }
         return effectiveIntensity(global: global, override: appOverride, isEnabled: appEnabled)
@@ -78,7 +77,7 @@ final class OverlayController {
     private var appIntensities: [String: Double]
     private var appIntensityEnabled: [String: Bool]
     private var displayIntensities: [String: Double]
-    private var displayIntensityEnabled: [String: Bool]
+    private var displayDimmingDisabled: [String: Bool]
     private var focusGroupsStorage: [FocusGroup]
     private(set) var activeGroupName: String?
     private var currentApplication: NSRunningApplication?
@@ -122,10 +121,10 @@ final class OverlayController {
         } else {
             displayIntensities = [:]
         }
-        if let raw = UserDefaults.standard.dictionary(forKey: ForelightSettings.displayIntensityEnabledKey) as? [String: Bool] {
-            displayIntensityEnabled = raw
+        if let raw = UserDefaults.standard.dictionary(forKey: ForelightSettings.displayDimmingDisabledKey) as? [String: Bool] {
+            displayDimmingDisabled = raw
         } else {
-            displayIntensityEnabled = [:]
+            displayDimmingDisabled = [:]
         }
         if let data = UserDefaults.standard.data(forKey: ForelightSettings.focusGroupsKey),
            let groups = try? JSONDecoder().decode([FocusGroup].self, from: data) {
@@ -187,14 +186,18 @@ final class OverlayController {
         appIntensityEnabled
     }
 
-    func isDisplayIntensityEnabled(_ displayID: String) -> Bool {
-        displayIntensityEnabled[displayID] ?? true
+    func isDisplayDimmingEnabled(_ displayID: String) -> Bool {
+        displayDimmingDisabled[displayID] != true
     }
 
     /// The custom value stored for a display, or the global value as a starting
     /// point when the display has no override yet.
     func displayIntensityValue(for displayID: String) -> Double {
         displayIntensities[displayID] ?? intensity
+    }
+
+    var displayIntensityStates: [String: Double] {
+        displayIntensities
     }
 
     var accessibilityTrusted: Bool {
@@ -368,10 +371,10 @@ final class OverlayController {
         } else {
             displayIntensities = [:]
         }
-        if let raw = defaults.dictionary(forKey: ForelightSettings.displayIntensityEnabledKey) as? [String: Bool] {
-            displayIntensityEnabled = raw
+        if let raw = defaults.dictionary(forKey: ForelightSettings.displayDimmingDisabledKey) as? [String: Bool] {
+            displayDimmingDisabled = raw
         } else {
-            displayIntensityEnabled = [:]
+            displayDimmingDisabled = [:]
         }
 
         if let data = defaults.data(forKey: ForelightSettings.focusGroupsKey),
@@ -432,29 +435,29 @@ final class OverlayController {
 
     func setDisplayIntensity(displayID: String, value: Double) {
         displayIntensities[displayID] = ForelightSettings.clampedIntensity(value)
-        if displayIntensityEnabled[displayID] == nil {
-            displayIntensityEnabled[displayID] = true
-        }
         persistDisplayIntensities()
         refresh()
     }
 
-    func setDisplayIntensityEnabled(displayID: String, enabled: Bool) {
-        displayIntensityEnabled[displayID] = enabled
+    func setDisplayDimmingEnabled(displayID: String, enabled: Bool) {
+        if enabled {
+            displayDimmingDisabled.removeValue(forKey: displayID)
+        } else {
+            displayDimmingDisabled[displayID] = true
+        }
         persistDisplayIntensities()
         refresh()
     }
 
     func removeDisplayIntensity(displayID: String) {
         displayIntensities.removeValue(forKey: displayID)
-        displayIntensityEnabled.removeValue(forKey: displayID)
         persistDisplayIntensities()
         refresh()
     }
 
     private func persistDisplayIntensities() {
         UserDefaults.standard.set(displayIntensities, forKey: ForelightSettings.displayIntensitiesKey)
-        UserDefaults.standard.set(displayIntensityEnabled, forKey: ForelightSettings.displayIntensityEnabledKey)
+        UserDefaults.standard.set(displayDimmingDisabled, forKey: ForelightSettings.displayDimmingDisabledKey)
         activeGroupName = nil
     }
 
@@ -559,6 +562,12 @@ final class OverlayController {
         }
 
         for overlay in overlays {
+            if let displayID = DisplayIdentifier.info(for: overlay.targetScreen)?.id,
+               !isDisplayDimmingEnabled(displayID) {
+                overlay.hideImmediately()
+                continue
+            }
+
             let cutout = focusedWindowFrame.flatMap { frame in
                 let intersection = frame.intersection(overlay.frame)
                 return intersection.isNull || intersection.isEmpty ? nil : intersection
@@ -575,7 +584,6 @@ final class OverlayController {
     func resolvedIntensity(for screen: NSScreen) -> Double {
         let displayID = DisplayIdentifier.info(for: screen)?.id
         let displayOverride = displayID.flatMap { displayIntensities[$0] }
-        let displayEnabled = displayID.map { isDisplayIntensityEnabled($0) } ?? false
         let bundleID = currentApplication?.bundleIdentifier
         let appOverride = bundleID.flatMap { appIntensities[$0] }
         let appEnabled = bundleID.map { isAppIntensityEnabled($0) } ?? false
@@ -584,8 +592,7 @@ final class OverlayController {
             global: intensity,
             appOverride: appOverride,
             appEnabled: appEnabled,
-            displayOverride: displayOverride,
-            displayEnabled: displayEnabled
+            displayOverride: displayOverride
         )
     }
 
