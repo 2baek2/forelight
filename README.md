@@ -10,6 +10,7 @@ Forelight is a small macOS menu bar utility that keeps the frontmost window clea
 - Recordable global toggle shortcut (default `⌥⌘F`)
 - Optional hide-while-moving behavior with fade and restore timing controls
 - Per-app exceptions, persisted by Bundle ID, managed as a toggle list
+- Per-app dim intensity overrides (set from the panel or Settings → Apps)
 - Dark, light, or system appearance
 - Optional launch at login
 - Steps aside while Mission Control, App Exposé, Launchpad, or Show Desktop is open

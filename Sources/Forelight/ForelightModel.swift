@@ -10,6 +10,15 @@ struct ExceptionEntry: Identifiable {
     var id: String { bundleID }
 }
 
+struct AppIntensityEntry: Identifiable {
+    let bundleID: String
+    let name: String
+    let icon: NSImage?
+    var value: Double
+
+    var id: String { bundleID }
+}
+
 enum AppInfoResolver {
     static func resolve(bundleID: String) -> (name: String, icon: NSImage?) {
         guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else {
@@ -37,6 +46,9 @@ final class ForelightModel: ObservableObject {
     @Published var appearanceMode: AppearanceMode
     @Published var shortcut: KeyCombo
     @Published var launchAtLogin: Bool
+    @Published var effectiveIntensity: Double
+    @Published var currentApplicationHasIntensityOverride: Bool
+    @Published var appIntensityOverrides: [AppIntensityEntry]
 
     init(
         isEnabled: Bool,
@@ -50,7 +62,10 @@ final class ForelightModel: ObservableObject {
         exceptions: [ExceptionEntry],
         appearanceMode: AppearanceMode,
         shortcut: KeyCombo,
-        launchAtLogin: Bool
+        launchAtLogin: Bool,
+        effectiveIntensity: Double,
+        currentApplicationHasIntensityOverride: Bool,
+        appIntensityOverrides: [AppIntensityEntry]
     ) {
         self.isEnabled = isEnabled
         self.currentApplicationName = currentApplicationName
@@ -64,5 +79,8 @@ final class ForelightModel: ObservableObject {
         self.appearanceMode = appearanceMode
         self.shortcut = shortcut
         self.launchAtLogin = launchAtLogin
+        self.effectiveIntensity = effectiveIntensity
+        self.currentApplicationHasIntensityOverride = currentApplicationHasIntensityOverride
+        self.appIntensityOverrides = appIntensityOverrides
     }
 }

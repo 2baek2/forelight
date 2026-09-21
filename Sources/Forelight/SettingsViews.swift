@@ -7,6 +7,7 @@ struct MenuPanelView: View {
     let onIntensityChanged: (Double) -> Void
     let onToggleMoving: (Bool) -> Void
     let onToggleExclusion: () -> Void
+    let onToggleAppIntensityOverride: () -> Void
     let onAppearanceModeChanged: (AppearanceMode) -> Void
     let onOpenSettings: () -> Void
     let onQuit: () -> Void
@@ -16,8 +17,24 @@ struct MenuPanelView: View {
             header
 
             Card {
-                IntensityControl(value: model.intensity, onChanged: onIntensityChanged)
-                    .padding(12)
+                VStack(alignment: .leading, spacing: 8) {
+                    IntensityControl(value: model.effectiveIntensity, onChanged: onIntensityChanged)
+
+                    HStack(spacing: 6) {
+                        Text(intensityContextLabel)
+                            .font(.caption)
+                            .foregroundStyle(ForelightStyle.muted)
+                        Spacer()
+                        if model.currentApplicationName != nil {
+                            Button(model.currentApplicationHasIntensityOverride ? "Use default" : "Customize") {
+                                onToggleAppIntensityOverride()
+                            }
+                            .buttonStyle(.borderless)
+                            .controlSize(.small)
+                        }
+                    }
+                }
+                .padding(12)
             }
 
             Card {
@@ -57,7 +74,7 @@ struct MenuPanelView: View {
             Card {
                 CardRow(
                     title: "Appearance",
-                    subtitle: "System, light, or dark",
+                    subtitle: "System, light, dark",
                     systemImage: "circle.lefthalf.filled"
                 ) {
                     Picker("", selection: Binding(
@@ -119,6 +136,13 @@ struct MenuPanelView: View {
             .controlSize(.small)
         }
     }
+
+    private var intensityContextLabel: String {
+        if model.currentApplicationHasIntensityOverride, let name = model.currentApplicationName {
+            return "Custom for \(name)"
+        }
+        return "All apps"
+    }
 }
 
 struct SettingsView: View {
@@ -126,6 +150,7 @@ struct SettingsView: View {
         case general = "General"
         case focus = "Focus"
         case exceptions = "Exceptions"
+        case apps = "Apps"
         case advanced = "Advanced"
 
         var id: String { rawValue }
@@ -135,6 +160,7 @@ struct SettingsView: View {
             case .general: return "slider.horizontal.3"
             case .focus: return "viewfinder"
             case .exceptions: return "eye.slash"
+            case .apps: return "square.grid.2x2"
             case .advanced: return "gearshape"
             }
         }
@@ -144,6 +170,7 @@ struct SettingsView: View {
             case .general: return "Turn dimming on or off and check the global shortcut."
             case .focus: return "Control how much the background is dimmed and how window movement is handled."
             case .exceptions: return "Apps that stay clear while everything else is dimmed."
+            case .apps: return "Give individual apps their own dim intensity."
             case .advanced: return "Permissions and deeper behavior."
             }
         }
@@ -162,10 +189,14 @@ struct SettingsView: View {
     let onSetException: (String, Bool) -> Void
     let onRemoveException: (String) -> Void
     let onAddException: () -> Void
+    let onSetAppIntensity: (String, Double) -> Void
+    let onRemoveAppIntensity: (String) -> Void
+    let onAddAppIntensity: () -> Void
     let onOpenAccessibilitySettings: () -> Void
 
     @State private var selectedSection: Section = .general
     @State private var selectedExceptionID: String?
+    @State private var selectedAppIntensityID: String?
 
     var body: some View {
         HStack(spacing: 0) {
@@ -371,6 +402,75 @@ struct SettingsView: View {
                         Image(systemName: "minus")
                     }
                     .disabled(selectedExceptionID == nil)
+                    .help("Remove the selected application")
+
+                    Spacer()
+                }
+                .buttonStyle(.borderless)
+                .controlSize(.small)
+            }
+        case .apps:
+            VStack(alignment: .leading, spacing: 12) {
+                List(selection: $selectedAppIntensityID) {
+                    ForEach(model.appIntensityOverrides) { entry in
+                        HStack(spacing: 10) {
+                            if let icon = entry.icon {
+                                Image(nsImage: icon)
+                                    .resizable()
+                                    .frame(width: 20, height: 20)
+                            } else {
+                                Image(systemName: "app.dashed")
+                                    .frame(width: 20, height: 20)
+                                    .foregroundStyle(ForelightStyle.muted)
+                            }
+                            Text(entry.name)
+                            Spacer()
+                            Slider(
+                                value: Binding(
+                                    get: { entry.value },
+                                    set: { value in onSetAppIntensity(entry.bundleID, value) }
+                                ),
+                                in: ForelightSettings.intensityRange
+                            )
+                            .frame(width: 160)
+                            Text("\(Int((entry.value * 100).rounded()))%")
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(ForelightStyle.muted)
+                                .frame(width: 42, alignment: .trailing)
+                        }
+                        .padding(.vertical, 2)
+                        .tag(entry.bundleID)
+                    }
+                }
+                .scrollContentBackground(.hidden)
+                .background(ForelightStyle.cardBackground)
+                .frame(minHeight: 320)
+                .clipShape(RoundedRectangle(cornerRadius: ForelightStyle.cardCorner, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: ForelightStyle.cardCorner, style: .continuous)
+                        .strokeBorder(ForelightStyle.cardBorder, lineWidth: 1)
+                )
+                .overlay {
+                    if model.appIntensityOverrides.isEmpty {
+                        Text("No custom intensities yet. Use + to add an app.")
+                            .foregroundStyle(ForelightStyle.muted)
+                    }
+                }
+
+                HStack(spacing: 6) {
+                    Button(action: onAddAppIntensity) {
+                        Image(systemName: "plus")
+                    }
+                    .help("Add an application")
+
+                    Button {
+                        guard let selectedAppIntensityID else { return }
+                        onRemoveAppIntensity(selectedAppIntensityID)
+                        self.selectedAppIntensityID = nil
+                    } label: {
+                        Image(systemName: "minus")
+                    }
+                    .disabled(selectedAppIntensityID == nil)
                     .help("Remove the selected application")
 
                     Spacer()

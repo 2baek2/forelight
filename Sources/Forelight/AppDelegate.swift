@@ -44,7 +44,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             exceptions: [],
             appearanceMode: appearanceMode,
             shortcut: shortcut,
-            launchAtLogin: SMAppService.mainApp.status == .enabled
+            launchAtLogin: SMAppService.mainApp.status == .enabled,
+            effectiveIntensity: controller.displayedIntensity,
+            currentApplicationHasIntensityOverride: false,
+            appIntensityOverrides: []
         )
         super.init()
     }
@@ -82,9 +85,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             rootView: MenuPanelView(
                 model: model,
                 onToggleEnabled: { [weak self] value in self?.setEnabled(value) },
-                onIntensityChanged: { [weak self] value in self?.setIntensity(value) },
+                onIntensityChanged: { [weak self] value in self?.setDisplayedIntensity(value) },
                 onToggleMoving: { [weak self] value in self?.setHideWhileMoving(value) },
                 onToggleExclusion: { [weak self] in self?.toggleCurrentApplicationExclusion() },
+                onToggleAppIntensityOverride: { [weak self] in self?.toggleCurrentApplicationIntensityOverride() },
                 onAppearanceModeChanged: { [weak self] mode in self?.setAppearanceMode(mode) },
                 onOpenSettings: { [weak self] in self?.presentSettings() },
                 onQuit: { NSApplication.shared.terminate(nil) }
@@ -285,6 +289,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         model.appearanceMode = appearanceMode
         model.shortcut = shortcut
         model.launchAtLogin = SMAppService.mainApp.status == .enabled
+        model.effectiveIntensity = overlayController.displayedIntensity
+        model.currentApplicationHasIntensityOverride = overlayController.currentApplicationIntensityOverride != nil
+        model.appIntensityOverrides = overlayController.appIntensityStates
+            .map { bundleID, value in
+                let info = AppInfoResolver.resolve(bundleID: bundleID)
+                return AppIntensityEntry(
+                    bundleID: bundleID,
+                    name: info.name,
+                    icon: info.icon,
+                    value: value
+                )
+            }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
         model.exceptions = overlayController.exceptionStates
             .map { bundleID, isEnabled in
                 let info = AppInfoResolver.resolve(bundleID: bundleID)
@@ -320,6 +337,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private func setIntensity(_ value: Double) {
         overlayController.setIntensity(value)
         syncModel()
+    }
+
+    private func setDisplayedIntensity(_ value: Double) {
+        overlayController.setDisplayedIntensity(value)
+        syncModel()
+    }
+
+    private func toggleCurrentApplicationIntensityOverride() {
+        guard let bundleID = overlayController.currentApplicationBundleID else { return }
+        if overlayController.currentApplicationIntensityOverride != nil {
+            overlayController.removeAppIntensity(bundleID: bundleID)
+        } else {
+            overlayController.setAppIntensity(bundleID: bundleID, value: overlayController.displayedIntensity)
+        }
+        refreshUI()
+    }
+
+    private func setAppIntensity(bundleID: String, value: Double) {
+        overlayController.setAppIntensity(bundleID: bundleID, value: value)
+        syncModel()
+    }
+
+    private func removeAppIntensity(bundleID: String) {
+        overlayController.removeAppIntensity(bundleID: bundleID)
+        refreshUI()
     }
 
     private func setHideWhileMoving(_ value: Bool) {
@@ -387,6 +429,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     private func addExceptionFromPanel() {
+        for bundleID in chooseApplications(message: "Choose applications to exclude from dimming.") {
+            overlayController.addException(bundleID: bundleID)
+        }
+        refreshUI()
+    }
+
+    private func addAppIntensityFromPanel() {
+        let value = overlayController.intensity
+        for bundleID in chooseApplications(message: "Choose applications to give a custom dim intensity.") {
+            overlayController.setAppIntensity(bundleID: bundleID, value: value)
+        }
+        refreshUI()
+    }
+
+    private func chooseApplications(message: String) -> [String] {
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.application]
         panel.directoryURL = URL(fileURLWithPath: "/Applications")
@@ -394,15 +451,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         panel.canChooseDirectories = false
         panel.canChooseFiles = true
         panel.prompt = "Add"
-        panel.message = "Choose applications to exclude from dimming."
+        panel.message = message
 
-        guard panel.runModal() == .OK else { return }
-        for url in panel.urls {
-            if let bundleID = Bundle(url: url)?.bundleIdentifier {
-                overlayController.addException(bundleID: bundleID)
-            }
-        }
-        refreshUI()
+        guard panel.runModal() == .OK else { return [] }
+        return panel.urls.compactMap { Bundle(url: $0)?.bundleIdentifier }
     }
 
     private func presentSettings(center: Bool = true) {
@@ -439,6 +491,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                     onSetException: { [weak self] bundleID, enabled in self?.setException(bundleID: bundleID, enabled: enabled) },
                     onRemoveException: { [weak self] bundleID in self?.removeException(bundleID: bundleID) },
                     onAddException: { [weak self] in self?.addExceptionFromPanel() },
+                    onSetAppIntensity: { [weak self] bundleID, value in self?.setAppIntensity(bundleID: bundleID, value: value) },
+                    onRemoveAppIntensity: { [weak self] bundleID in self?.removeAppIntensity(bundleID: bundleID) },
+                    onAddAppIntensity: { [weak self] in self?.addAppIntensityFromPanel() },
                     onOpenAccessibilitySettings: { [weak self] in self?.overlayController.openAccessibilitySettings() }
                 )
             )

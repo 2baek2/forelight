@@ -10,6 +10,12 @@ enum ForelightSettings {
     static let restoreDelayKey = "dragRestoreDelay"
     static let appearanceModeKey = "appearanceMode"
     static let shortcutKey = "globalShortcut"
+    static let appIntensitiesKey = "appIntensities"
+    static let intensityRange: ClosedRange<Double> = 0.10...0.90
+
+    static func clampedIntensity(_ value: Double) -> Double {
+        min(max(value, intensityRange.lowerBound), intensityRange.upperBound)
+    }
 }
 
 @MainActor
@@ -28,6 +34,7 @@ final class OverlayController {
     private(set) var restoreDelay: Double
     private var isEnabled = true
     private var exceptions: [String: Bool]
+    private var appIntensities: [String: Double]
     private var currentApplication: NSRunningApplication?
     private var isDraggingWindow = false
     private var mouseButtonDown = false
@@ -53,6 +60,11 @@ final class OverlayController {
             let legacy = UserDefaults.standard.stringArray(forKey: Self.excludedBundleIDsKey) ?? []
             exceptions = Dictionary(uniqueKeysWithValues: legacy.map { ($0, true) })
         }
+        if let raw = UserDefaults.standard.dictionary(forKey: ForelightSettings.appIntensitiesKey) {
+            appIntensities = raw.compactMapValues { ($0 as? NSNumber)?.doubleValue }
+        } else {
+            appIntensities = [:]
+        }
         let savedIntensity = UserDefaults.standard.double(forKey: ForelightSettings.intensityKey)
         intensity = savedIntensity > 0 ? savedIntensity : 0.45
         let defaults = UserDefaults.standard
@@ -76,6 +88,25 @@ final class OverlayController {
 
     var exceptionStates: [String: Bool] {
         exceptions
+    }
+
+    /// Intensity that applies to the frontmost app right now: its per-app
+    /// override when it has one, otherwise the global value.
+    var displayedIntensity: Double {
+        if let bundleID = currentApplication?.bundleIdentifier,
+           let override = appIntensities[bundleID] {
+            return override
+        }
+        return intensity
+    }
+
+    var currentApplicationIntensityOverride: Double? {
+        guard let bundleID = currentApplication?.bundleIdentifier else { return nil }
+        return appIntensities[bundleID]
+    }
+
+    var appIntensityStates: [String: Double] {
+        appIntensities
     }
 
     var accessibilityTrusted: Bool {
@@ -156,7 +187,33 @@ final class OverlayController {
     }
 
     func setIntensity(_ value: Double) {
-        intensity = min(max(value, 0.10), 0.90)
+        intensity = ForelightSettings.clampedIntensity(value)
+    }
+
+    /// Edits whatever intensity is in effect for the frontmost app: its override
+    /// when present, otherwise the global value.
+    func setDisplayedIntensity(_ value: Double) {
+        if let bundleID = currentApplication?.bundleIdentifier, appIntensities[bundleID] != nil {
+            setAppIntensity(bundleID: bundleID, value: value)
+        } else {
+            setIntensity(value)
+        }
+    }
+
+    func setAppIntensity(bundleID: String, value: Double) {
+        appIntensities[bundleID] = ForelightSettings.clampedIntensity(value)
+        persistAppIntensities()
+        refresh()
+    }
+
+    func removeAppIntensity(bundleID: String) {
+        appIntensities.removeValue(forKey: bundleID)
+        persistAppIntensities()
+        refresh()
+    }
+
+    private func persistAppIntensities() {
+        UserDefaults.standard.set(appIntensities, forKey: ForelightSettings.appIntensitiesKey)
     }
 
     func setHideWhileMoving(_ value: Bool) {
@@ -259,7 +316,7 @@ final class OverlayController {
                 excluding: ProcessInfo.processInfo.processIdentifier,
                 preferredOwnerPID: observedPID
             )?.cocoaFrame(on: overlay.targetScreen)
-            overlay.update(cutout: cutout, alpha: intensity)
+            overlay.update(cutout: cutout, alpha: displayedIntensity)
             overlay.restoreImmediately()
         }
     }
