@@ -174,31 +174,45 @@ final class OverlayView: NSView {
     }
 
     /// Removes the dim around the cursor with a soft edge by drawing a radial
-    /// gradient in destination-out mode.
+    /// gradient in destination-out mode: fully clear out to the inner radius,
+    /// then fading to nothing at the outer radius.
     private func punchFeatheredHole(_ spotlight: Spotlight, in context: CGContext) {
-        let innerRadius = max(spotlight.radius - max(spotlight.feather, 0), 0)
-        let colors = [
-            NSColor.black.withAlphaComponent(1).cgColor,
-            NSColor.black.withAlphaComponent(0).cgColor
-        ] as CFArray
+        let radius = max(spotlight.radius, 1)
+        let circle = CGRect(
+            x: spotlight.center.x - radius,
+            y: spotlight.center.y - radius,
+            width: radius * 2,
+            height: radius * 2
+        )
 
+        context.setBlendMode(.destinationOut)
+        defer { context.setBlendMode(.normal) }
+
+        guard spotlight.feather > 0 else {
+            context.fillEllipse(in: circle)
+            return
+        }
+
+        let inner = min(max(radius - spotlight.feather, 0), radius)
+        let solidStop = min(max(inner / radius, 0), 0.999)
+
+        let opaque = NSColor.black.withAlphaComponent(1).cgColor
+        let clear = NSColor.black.withAlphaComponent(0).cgColor
         guard let gradient = CGGradient(
             colorsSpace: CGColorSpaceCreateDeviceRGB(),
-            colors: colors,
-            locations: [0, 1]
+            colors: [opaque, opaque, clear] as CFArray,
+            locations: [0, solidStop, 1]
         ) else {
             return
         }
 
-        context.setBlendMode(.destinationOut)
         context.drawRadialGradient(
             gradient,
             startCenter: spotlight.center,
-            startRadius: innerRadius,
+            startRadius: 0,
             endCenter: spotlight.center,
-            endRadius: spotlight.radius,
+            endRadius: radius,
             options: []
         )
-        context.setBlendMode(.normal)
     }
 }
