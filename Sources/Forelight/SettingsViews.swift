@@ -11,56 +11,91 @@ struct MenuPanelView: View {
     let onQuit: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 10) {
-                Image(systemName: "viewfinder")
-                    .font(.title2)
-                    .foregroundStyle(.tint)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Forelight")
-                        .font(.headline)
-                    Text(model.isEnabled ? "Focus mode is on" : "Focus mode is paused")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                Toggle("", isOn: Binding(
-                    get: { model.isEnabled },
-                    set: { value in onToggleEnabled(value) }
-                ))
-                    .labelsHidden()
+        VStack(alignment: .leading, spacing: 12) {
+            header
+
+            Card {
+                IntensityControl(value: model.intensity, onChanged: onIntensityChanged)
+                    .padding(12)
             }
 
-            Divider()
-
-            IntensityControl(value: model.intensity, onChanged: onIntensityChanged)
-
-            Toggle("Hide while moving a window", isOn: Binding(
-                get: { model.hideWhileMoving },
-                set: { value in onToggleMoving(value) }
-            ))
+            Card {
+                CardRow(
+                    title: "Hide while moving",
+                    subtitle: "Clear dimming while dragging",
+                    systemImage: "hand.draw"
+                ) {
+                    Toggle("", isOn: Binding(
+                        get: { model.hideWhileMoving },
+                        set: { value in onToggleMoving(value) }
+                    ))
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+                    .controlSize(.small)
+                }
+            }
 
             if let currentApplicationName = model.currentApplicationName {
-                Button(action: onToggleExclusion) {
-                    Label(
-                        model.currentApplicationIsExcluded ? "Include " + currentApplicationName : "Exclude " + currentApplicationName,
-                        systemImage: model.currentApplicationIsExcluded ? "eye" : "eye.slash"
-                    )
+                Card {
+                    CardRow(
+                        title: currentApplicationName,
+                        subtitle: model.currentApplicationIsExcluded ? "Excluded from dimming" : "Included in dimming",
+                        systemImage: "app"
+                    ) {
+                        Toggle("", isOn: Binding(
+                            get: { model.currentApplicationIsExcluded },
+                            set: { _ in onToggleExclusion() }
+                        ))
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                        .controlSize(.small)
+                    }
                 }
-                .buttonStyle(.borderless)
             }
 
-            Divider()
-
-            HStack {
+            HStack(spacing: 8) {
                 Button("Settings…", action: onOpenSettings)
+                    .buttonStyle(.bordered)
                 Spacer()
                 Button("Quit", action: onQuit)
-                    .foregroundStyle(.secondary)
+                    .buttonStyle(.bordered)
             }
+            .controlSize(.small)
         }
-        .padding(16)
-        .frame(width: 340)
+        .padding(14)
+        .frame(width: 330)
+    }
+
+    private var header: some View {
+        HStack(spacing: 10) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .fill(Color.accentColor.opacity(0.15))
+                    .frame(width: 34, height: 34)
+                Image(systemName: "viewfinder")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(Color.accentColor)
+            }
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Forelight")
+                    .font(.headline)
+                StatusPill(
+                    text: model.isEnabled ? "Focus mode on" : "Focus mode paused",
+                    color: model.isEnabled ? .green : .secondary
+                )
+            }
+
+            Spacer()
+
+            Toggle("", isOn: Binding(
+                get: { model.isEnabled },
+                set: { value in onToggleEnabled(value) }
+            ))
+            .labelsHidden()
+            .toggleStyle(.switch)
+            .controlSize(.small)
+        }
     }
 }
 
@@ -72,12 +107,22 @@ struct SettingsView: View {
         case advanced = "Advanced"
 
         var id: String { rawValue }
+
         var icon: String {
             switch self {
             case .general: return "slider.horizontal.3"
             case .focus: return "viewfinder"
             case .exceptions: return "eye.slash"
             case .advanced: return "gearshape"
+            }
+        }
+
+        var subtitle: String {
+            switch self {
+            case .general: return "Turn dimming on or off and check the global shortcut."
+            case .focus: return "Control how much the background is dimmed and how window movement is handled."
+            case .exceptions: return "Apps that stay clear while everything else is dimmed."
+            case .advanced: return "Permissions and deeper behavior."
             }
         }
     }
@@ -108,9 +153,14 @@ struct SettingsView: View {
             Divider()
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 22) {
-                    Text(selectedSection.rawValue)
-                        .font(.title2.weight(.semibold))
+                VStack(alignment: .leading, spacing: 20) {
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(selectedSection.rawValue)
+                            .font(.title2.weight(.semibold))
+                        Text(selectedSection.subtitle)
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                    }
                     detailView
                 }
                 .padding(28)
@@ -124,58 +174,75 @@ struct SettingsView: View {
     private var detailView: some View {
         switch selectedSection {
         case .general:
-            VStack(alignment: .leading, spacing: 18) {
-                GroupBox {
-                    Toggle("Enable Forelight", isOn: Binding(
+            Card {
+                CardRow(
+                    title: "Enable Forelight",
+                    subtitle: "Dim everything except the front window",
+                    systemImage: "viewfinder"
+                ) {
+                    Toggle("", isOn: Binding(
                         get: { model.isEnabled },
                         set: { value in onToggleEnabled(value) }
                     ))
-                        .padding(8)
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+                    .controlSize(.small)
                 }
-                GroupBox("Keyboard shortcut") {
-                    HStack {
-                        Text("Toggle focus mode")
-                        Spacer()
-                        Text("⌥⌘F")
-                            .font(.system(.body, design: .monospaced))
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding(8)
+                CardDivider()
+                CardRow(
+                    title: "Toggle focus mode",
+                    subtitle: "Works from any app",
+                    systemImage: "keyboard"
+                ) {
+                    Text("⌥⌘F")
+                        .font(.system(.body, design: .monospaced))
+                        .foregroundStyle(.secondary)
                 }
-                Text("The menu bar icon shows whether focus mode is active. The shortcut works from any app.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
             }
         case .focus:
-            VStack(alignment: .leading, spacing: 18) {
-                GroupBox("Overlay") {
-                    VStack(alignment: .leading, spacing: 12) {
-                        IntensityControl(value: model.intensity, onChanged: onIntensityChanged)
-                        Toggle("Hide while moving a window", isOn: Binding(
+            VStack(alignment: .leading, spacing: 16) {
+                Card {
+                    IntensityControl(value: model.intensity, onChanged: onIntensityChanged)
+                        .padding(12)
+                    CardDivider()
+                    CardRow(
+                        title: "Hide while moving",
+                        subtitle: "Clear the dimming while a window is dragged",
+                        systemImage: "hand.draw"
+                    ) {
+                        Toggle("", isOn: Binding(
                             get: { model.hideWhileMoving },
                             set: { value in onToggleMoving(value) }
                         ))
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                        .controlSize(.small)
                     }
-                    .padding(8)
                 }
-                GroupBox("Window movement") {
-                    VStack(alignment: .leading, spacing: 12) {
-                        settingSlider(title: "Fade animation", value: model.fadeDuration, range: 0...0.35, suffix: "s") { value in
-                            onFadeDurationChanged(value)
-                        }
-                        settingSlider(title: "Restore delay", value: model.restoreDelay, range: 0...0.30, suffix: "s") { value in
-                            onRestoreDelayChanged(value)
-                        }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    SectionHeader(title: "Window movement")
+                    Card {
+                        SliderRow(
+                            title: "Fade animation",
+                            value: model.fadeDuration,
+                            range: 0...0.35,
+                            suffix: "s",
+                            onChanged: onFadeDurationChanged
+                        )
+                        CardDivider()
+                        SliderRow(
+                            title: "Restore delay",
+                            value: model.restoreDelay,
+                            range: 0...0.30,
+                            suffix: "s",
+                            onChanged: onRestoreDelayChanged
+                        )
                     }
-                    .padding(8)
                 }
             }
         case .exceptions:
             VStack(alignment: .leading, spacing: 12) {
-                Text("Apps listed here are excluded from dimming. Toggle an app off to keep it in the list without excluding it.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-
                 List(selection: $selectedExceptionID) {
                     ForEach(model.exceptions) { entry in
                         HStack(spacing: 10) {
@@ -194,12 +261,15 @@ struct SettingsView: View {
                                 get: { entry.isEnabled },
                                 set: { value in onSetException(entry.bundleID, value) }
                             ))
-                                .labelsHidden()
+                            .labelsHidden()
+                            .toggleStyle(.switch)
+                            .controlSize(.small)
                         }
+                        .padding(.vertical, 2)
                         .tag(entry.bundleID)
                     }
                 }
-                .frame(minHeight: 220)
+                .frame(minHeight: 240)
                 .overlay {
                     if model.exceptions.isEmpty {
                         Text("No apps are excluded yet. Use + to add one.")
@@ -226,40 +296,31 @@ struct SettingsView: View {
                     Spacer()
                 }
                 .buttonStyle(.borderless)
+                .controlSize(.small)
             }
         case .advanced:
-            VStack(alignment: .leading, spacing: 18) {
-                GroupBox("Accessibility") {
-                    HStack {
+            VStack(alignment: .leading, spacing: 16) {
+                Card {
+                    HStack(spacing: 10) {
                         Image(systemName: model.accessibilityTrusted ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
                             .foregroundStyle(model.accessibilityTrusted ? .green : .orange)
-                        Text(model.accessibilityTrusted ? "Permission granted" : "Permission required for precise window tracking")
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Accessibility")
+                            Text(model.accessibilityTrusted ? "Permission granted" : "Required for precise window tracking")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
                         Spacer()
                         Button("Open System Settings", action: onOpenAccessibilitySettings)
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
                     }
-                    .padding(8)
+                    .padding(12)
                 }
                 Text("Forelight keeps this permission at the app identity level, so rebuilding the app does not require adding it again.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
-        }
-    }
-
-    private func settingSlider(
-        title: String,
-        value: Double,
-        range: ClosedRange<Double>,
-        suffix: String,
-        action: @escaping (Double) -> Void
-    ) -> some View {
-        HStack {
-            Text(title)
-            Slider(value: Binding(get: { value }, set: { newValue in action(newValue) }), in: range)
-            Text(String(format: "%.2f%@", value, suffix))
-                .monospacedDigit()
-                .foregroundStyle(.secondary)
-                .frame(width: 50, alignment: .trailing)
         }
     }
 }
