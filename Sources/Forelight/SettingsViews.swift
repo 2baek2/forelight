@@ -136,6 +136,7 @@ struct SettingsView: View {
     let onRestoreDelayChanged: (Double) -> Void
     let onAppearanceModeChanged: (AppearanceMode) -> Void
     let onShortcutChanged: (KeyCombo) -> Void
+    let onShortcutRecordingChanged: (Bool) -> Void
     let onSetException: (String, Bool) -> Void
     let onRemoveException: (String) -> Void
     let onAddException: () -> Void
@@ -201,9 +202,11 @@ struct SettingsView: View {
                     subtitle: "Click, then press a new shortcut",
                     systemImage: "keyboard"
                 ) {
-                    ShortcutRecorder(combo: model.shortcut) { combo in
-                        onShortcutChanged(combo)
-                    }
+                    ShortcutRecorder(
+                        combo: model.shortcut,
+                        onChange: { combo in onShortcutChanged(combo) },
+                        onRecordingChanged: { recording in onShortcutRecordingChanged(recording) }
+                    )
                     .frame(width: 150, height: 24)
                 }
                 CardDivider()

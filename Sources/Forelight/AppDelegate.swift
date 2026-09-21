@@ -13,6 +13,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var enabled: Bool
     private var appearanceMode: AppearanceMode
     private var shortcut: KeyCombo
+    private let shortcutGate = ShortcutGate()
     private var activationObserver: NSObjectProtocol?
     private var terminationObserver: NSObjectProtocol?
     private var keyboardMonitors: [Any] = []
@@ -134,16 +135,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     private func configureGlobalShortcut() {
+        keyboardMonitors.forEach { NSEvent.removeMonitor($0) }
+        keyboardMonitors.removeAll()
+
+        // Capture the shortcut by value so the check happens against the combo
+        // that was current when the event arrived, not a later edit.
+        let expected = shortcut
         let handler: (NSEvent) -> Void = { [weak self] event in
+            guard !event.isARepeat, self?.shortcutGate.isSuppressed != true else { return }
             let keyCode = event.keyCode
             let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-            let isRepeat = event.isARepeat
+            guard keyCode == expected.keyCode,
+                  modifiers.rawValue == expected.modifiers else { return }
             Task { @MainActor [weak self] in
-                guard let self,
-                      !isRepeat,
-                      keyCode == self.shortcut.keyCode,
-                      modifiers.rawValue == self.shortcut.modifiers else { return }
-                self.toggleEnabled()
+                self?.toggleEnabled()
             }
         }
 
@@ -265,7 +270,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if let data = try? JSONEncoder().encode(combo) {
             UserDefaults.standard.set(data, forKey: ForelightSettings.shortcutKey)
         }
+        configureGlobalShortcut()
         syncModel()
+    }
+
+    private func setShortcutRecording(_ recording: Bool) {
+        shortcutGate.setSuppressed(recording)
     }
 
     private func setException(bundleID: String, enabled: Bool) {
@@ -325,6 +335,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                     onRestoreDelayChanged: { [weak self] value in self?.setRestoreDelay(value) },
                     onAppearanceModeChanged: { [weak self] mode in self?.setAppearanceMode(mode) },
                     onShortcutChanged: { [weak self] combo in self?.setShortcut(combo) },
+                    onShortcutRecordingChanged: { [weak self] recording in self?.setShortcutRecording(recording) },
                     onSetException: { [weak self] bundleID, enabled in self?.setException(bundleID: bundleID, enabled: enabled) },
                     onRemoveException: { [weak self] bundleID in self?.removeException(bundleID: bundleID) },
                     onAddException: { [weak self] in self?.addExceptionFromPanel() },

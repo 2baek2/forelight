@@ -44,23 +44,46 @@ struct KeyCombo: Equatable, Codable {
 struct ShortcutRecorder: NSViewRepresentable {
     let combo: KeyCombo
     let onChange: (KeyCombo) -> Void
+    let onRecordingChanged: (Bool) -> Void
 
     func makeNSView(context: Context) -> ShortcutRecorderView {
         let view = ShortcutRecorderView()
         view.combo = combo
         view.onCapture = onChange
+        view.onRecordingChanged = onRecordingChanged
         return view
     }
 
     func updateNSView(_ nsView: ShortcutRecorderView, context: Context) {
         nsView.combo = combo
+        nsView.onRecordingChanged = onRecordingChanged
         nsView.needsDisplay = true
+    }
+}
+
+/// Lets the global shortcut handler ignore keys while a new shortcut is being
+/// recorded, without needing main-actor hops inside the event monitor.
+final class ShortcutGate {
+    private let lock = NSLock()
+    private var suppressed = false
+
+    func setSuppressed(_ value: Bool) {
+        lock.lock()
+        suppressed = value
+        lock.unlock()
+    }
+
+    var isSuppressed: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return suppressed
     }
 }
 
 final class ShortcutRecorderView: NSView {
     var combo: KeyCombo?
     var onCapture: ((KeyCombo) -> Void)?
+    var onRecordingChanged: ((Bool) -> Void)?
 
     private var isRecording = false
 
@@ -105,8 +128,7 @@ final class ShortcutRecorderView: NSView {
     }
 
     override func mouseDown(with event: NSEvent) {
-        isRecording = true
-        needsDisplay = true
+        setRecording(true)
         window?.makeFirstResponder(self)
     }
 
@@ -118,8 +140,7 @@ final class ShortcutRecorderView: NSView {
 
         // Escape cancels recording.
         guard event.keyCode != 53 else {
-            isRecording = false
-            needsDisplay = true
+            setRecording(false)
             window?.makeFirstResponder(nil)
             return
         }
@@ -135,14 +156,18 @@ final class ShortcutRecorderView: NSView {
             keyEquivalent: event.charactersIgnoringModifiers ?? ""
         )
         onCapture?(combo)
-        isRecording = false
-        needsDisplay = true
+        setRecording(false)
         window?.makeFirstResponder(nil)
     }
 
     override func resignFirstResponder() -> Bool {
-        isRecording = false
-        needsDisplay = true
+        setRecording(false)
         return super.resignFirstResponder()
+    }
+
+    private func setRecording(_ value: Bool) {
+        isRecording = value
+        onRecordingChanged?(value)
+        needsDisplay = true
     }
 }
