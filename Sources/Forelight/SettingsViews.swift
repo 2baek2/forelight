@@ -7,6 +7,7 @@ struct MenuPanelView: View {
     let onIntensityChanged: (Double) -> Void
     let onToggleMoving: (Bool) -> Void
     let onToggleExclusion: () -> Void
+    let onAppearanceModeChanged: (AppearanceMode) -> Void
     let onOpenSettings: () -> Void
     let onQuit: () -> Void
 
@@ -50,6 +51,26 @@ struct MenuPanelView: View {
                         .toggleStyle(.switch)
                         .controlSize(.small)
                     }
+                }
+            }
+
+            Card {
+                CardRow(
+                    title: "Appearance",
+                    subtitle: "System, light, or dark",
+                    systemImage: "circle.lefthalf.filled"
+                ) {
+                    Picker("", selection: Binding(
+                        get: { model.appearanceMode },
+                        set: { mode in onAppearanceModeChanged(mode) }
+                    )) {
+                        ForEach(AppearanceMode.allCases) { mode in
+                            Text(mode.label).tag(mode)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .labelsHidden()
+                    .frame(width: 118)
                 }
             }
 

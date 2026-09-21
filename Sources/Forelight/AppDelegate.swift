@@ -85,6 +85,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 onIntensityChanged: { [weak self] value in self?.setIntensity(value) },
                 onToggleMoving: { [weak self] value in self?.setHideWhileMoving(value) },
                 onToggleExclusion: { [weak self] in self?.toggleCurrentApplicationExclusion() },
+                onAppearanceModeChanged: { [weak self] mode in self?.setAppearanceMode(mode) },
                 onOpenSettings: { [weak self] in self?.presentSettings() },
                 onQuit: { NSApplication.shared.terminate(nil) }
             )
@@ -198,6 +199,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         menu.addItem(toggleItem)
         menu.addItem(.separator())
 
+        let appearanceItem = NSMenuItem(title: "Appearance", action: nil, keyEquivalent: "")
+        let appearanceMenu = NSMenu()
+        for mode in AppearanceMode.allCases {
+            let item = NSMenuItem(
+                title: mode.label,
+                action: #selector(setAppearanceFromMenu(_:)),
+                keyEquivalent: ""
+            )
+            item.target = self
+            item.representedObject = mode.rawValue
+            item.state = appearanceMode == mode ? .on : .off
+            appearanceMenu.addItem(item)
+        }
+        appearanceItem.submenu = appearanceMenu
+        menu.addItem(appearanceItem)
+        menu.addItem(.separator())
+
         let settingsItem = NSMenuItem(
             title: "Settings…",
             action: #selector(openSettingsFromMenu),
@@ -228,6 +246,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     @objc private func openSettingsFromMenu() {
         presentSettings()
+    }
+
+    @objc private func setAppearanceFromMenu(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String,
+              let mode = AppearanceMode(rawValue: raw) else { return }
+        setAppearanceMode(mode)
     }
 
     @objc private func quitFromMenu() {
@@ -276,10 +300,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     private func updateStatusItem() {
         let symbol = enabled ? "viewfinder" : "viewfinder.circle"
-        statusItem.button?.image = NSImage(
+        let image = NSImage(
             systemSymbolName: symbol,
             accessibilityDescription: enabled ? "Forelight enabled" : "Forelight disabled"
         )
+        image?.isTemplate = true
+        statusItem.button?.image = image
         let appName = overlayController.currentApplicationName ?? "No active app"
         statusItem.button?.toolTip = enabled ? "Forelight · " + appName : "Forelight paused"
     }
