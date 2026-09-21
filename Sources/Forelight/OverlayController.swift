@@ -21,6 +21,7 @@ enum ForelightSettings {
     static let cutoutRadiusKey = "cutoutCornerRadius"
     static let cutoutPaddingKey = "cutoutPadding"
     static let dimTintKey = "dimTint"
+    static let rulesKey = "rules"
     static let focusGroupsKey = "focusGroups"
     static let hasCompletedOnboardingKey = "hasCompletedOnboarding"
     static let intensityRange: ClosedRange<Double> = 0.10...0.90
@@ -49,6 +50,7 @@ enum ForelightSettings {
         cutoutRadiusKey,
         cutoutPaddingKey,
         dimTintKey,
+        rulesKey,
         focusGroupsKey
     ]
 
@@ -102,6 +104,13 @@ final class OverlayController {
     private var displayDimmingDisabled: [String: Bool]
     private var focusGroupsStorage: [FocusGroup]
     private(set) var activeGroupName: String?
+    private var rulesStorage: [Rule]
+    private(set) var activeRuleID: UUID?
+    var onRuleAction: ((RuleAction) -> Void)?
+    private var cachedMicrophoneInUse = false
+    private var lastMicrophoneCheck = Date.distantPast
+    private var cachedOnBattery: Bool?
+    private var lastPowerCheck = Date.distantPast
     private var currentApplication: NSRunningApplication?
     private var isDraggingWindow = false
     private var mouseButtonDown = false
@@ -155,6 +164,12 @@ final class OverlayController {
             focusGroupsStorage = groups
         } else {
             focusGroupsStorage = []
+        }
+        if let data = UserDefaults.standard.data(forKey: ForelightSettings.rulesKey),
+           let rules = try? JSONDecoder().decode([Rule].self, from: data) {
+            rulesStorage = rules
+        } else {
+            rulesStorage = []
         }
         let savedIntensity = UserDefaults.standard.double(forKey: ForelightSettings.intensityKey)
         intensity = savedIntensity > 0 ? savedIntensity : 0.45
@@ -265,6 +280,7 @@ final class OverlayController {
             Task { @MainActor [weak self] in
                 self?.attachToFrontmostApplication()
                 self?.refresh()
+                self?.evaluateRules()
             }
         }
 
@@ -409,6 +425,82 @@ final class OverlayController {
         }
     }
 
+    // MARK: - Rules
+
+    var rules: [Rule] { rulesStorage }
+
+    func addRule(_ rule: Rule) {
+        rulesStorage.append(rule)
+        persistRules()
+        activeRuleID = nil
+    }
+
+    func updateRule(_ rule: Rule) {
+        if let index = rulesStorage.firstIndex(where: { $0.id == rule.id }) {
+            rulesStorage[index] = rule
+        } else {
+            rulesStorage.append(rule)
+        }
+        persistRules()
+        activeRuleID = nil
+    }
+
+    func deleteRule(id: UUID) {
+        rulesStorage.removeAll { $0.id == id }
+        persistRules()
+        activeRuleID = nil
+    }
+
+    func setRuleEnabled(id: UUID, enabled: Bool) {
+        guard let index = rulesStorage.firstIndex(where: { $0.id == id }) else { return }
+        rulesStorage[index].isEnabled = enabled
+        persistRules()
+        activeRuleID = nil
+    }
+
+    private func persistRules() {
+        if let data = try? JSONEncoder().encode(rulesStorage) {
+            UserDefaults.standard.set(data, forKey: ForelightSettings.rulesKey)
+        }
+    }
+
+    private func evaluateRules() {
+        guard !rulesStorage.isEmpty else {
+            activeRuleID = nil
+            return
+        }
+
+        let matched = RuleEvaluator.matchedRule(in: rulesStorage, context: makeRuleContext())
+        guard matched?.id != activeRuleID else { return }
+
+        activeRuleID = matched?.id
+        if let action = matched?.action {
+            onRuleAction?(action)
+        }
+    }
+
+    private func makeRuleContext() -> RuleContext {
+        let now = Date()
+
+        if now.timeIntervalSince(lastMicrophoneCheck) > 1 {
+            cachedMicrophoneInUse = RuleContextProvider.isMicrophoneInUse()
+            lastMicrophoneCheck = now
+        }
+        if now.timeIntervalSince(lastPowerCheck) > 2 {
+            cachedOnBattery = RuleContextProvider.isOnBattery()
+            lastPowerCheck = now
+        }
+
+        return RuleContext(
+            frontmostBundleID: currentApplication?.bundleIdentifier,
+            date: now,
+            onBattery: cachedOnBattery,
+            externalDisplayConnected: RuleContextProvider.hasExternalDisplay(),
+            idleSeconds: RuleContextProvider.idleSeconds(),
+            microphoneInUse: cachedMicrophoneInUse
+        )
+    }
+
     /// Re-reads every stored setting from UserDefaults. Used after importing or
     /// resetting settings.
     func reloadFromDefaults() {
@@ -450,6 +542,14 @@ final class OverlayController {
         } else {
             focusGroupsStorage = []
         }
+
+        if let data = defaults.data(forKey: ForelightSettings.rulesKey),
+           let rules = try? JSONDecoder().decode([Rule].self, from: data) {
+            rulesStorage = rules
+        } else {
+            rulesStorage = []
+        }
+        activeRuleID = nil
 
         let savedIntensity = defaults.double(forKey: ForelightSettings.intensityKey)
         intensity = savedIntensity > 0 ? ForelightSettings.clampedIntensity(savedIntensity) : 0.45

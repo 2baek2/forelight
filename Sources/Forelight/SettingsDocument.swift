@@ -25,6 +25,7 @@ struct SettingsDocument: Codable, Equatable {
     var cutoutRadius: Double?
     var cutoutPadding: Double?
     var dimTint: String?
+    var rules: [Rule]?
     var focusGroups: [FocusGroup]?
 
     init(version: Int = SettingsDocument.currentVersion) {
@@ -61,6 +62,9 @@ struct SettingsDocument: Codable, Equatable {
         document.cutoutRadius = defaults.object(forKey: ForelightSettings.cutoutRadiusKey) as? Double
         document.cutoutPadding = defaults.object(forKey: ForelightSettings.cutoutPaddingKey) as? Double
         document.dimTint = defaults.string(forKey: ForelightSettings.dimTintKey)
+        if let data = defaults.data(forKey: ForelightSettings.rulesKey) {
+            document.rules = try? JSONDecoder().decode([Rule].self, from: data)
+        }
         if let data = defaults.data(forKey: ForelightSettings.focusGroupsKey) {
             document.focusGroups = try? JSONDecoder().decode([FocusGroup].self, from: data)
         }
@@ -122,6 +126,9 @@ struct SettingsDocument: Codable, Equatable {
         }
         if let dimTint {
             defaults.set(dimTint, forKey: ForelightSettings.dimTintKey)
+        }
+        if let rules, let data = try? JSONEncoder().encode(rules) {
+            defaults.set(data, forKey: ForelightSettings.rulesKey)
         }
         if let focusGroups, let data = try? JSONEncoder().encode(focusGroups) {
             defaults.set(data, forKey: ForelightSettings.focusGroupsKey)

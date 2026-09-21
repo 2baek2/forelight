@@ -186,6 +186,7 @@ struct SettingsView: View {
         case apps = "Apps"
         case displays = "Displays"
         case groups = "Groups"
+        case rules = "Rules"
         case advanced = "Advanced"
 
         var id: String { rawValue }
@@ -198,6 +199,7 @@ struct SettingsView: View {
             case .apps: return "square.grid.2x2"
             case .displays: return "display"
             case .groups: return "square.stack.3d.up"
+            case .rules: return "bolt"
             case .advanced: return "gearshape"
             }
         }
@@ -210,6 +212,7 @@ struct SettingsView: View {
             case .apps: return "Give individual apps their own dim intensity."
             case .displays: return "Give each screen its own dim intensity."
             case .groups: return "Save the current setup as a group and switch between them."
+            case .rules: return "Turn dimming on or off automatically when conditions match."
             case .advanced: return "Permissions and deeper behavior."
             }
         }
@@ -217,7 +220,7 @@ struct SettingsView: View {
         /// List based sections fill the window; form sections scroll instead.
         var usesFillingList: Bool {
             switch self {
-            case .exceptions, .apps, .displays, .groups: return true
+            case .exceptions, .apps, .displays, .groups, .rules: return true
             case .general, .focus, .advanced: return false
             }
         }
@@ -254,6 +257,10 @@ struct SettingsView: View {
     let onDeleteGroup: (String) -> Void
     let onSetGroupShortcut: (String, KeyCombo?) -> Void
     let onGroupShortcutRecordingChanged: (Bool) -> Void
+    let onAddRule: () -> Void
+    let onEditRule: (UUID) -> Void
+    let onDeleteRule: (UUID) -> Void
+    let onSetRuleEnabled: (UUID, Bool) -> Void
     let onExportSettings: () -> Void
     let onImportSettings: () -> Void
     let onResetSettings: () -> Void
@@ -266,6 +273,7 @@ struct SettingsView: View {
     @State private var selectedAppIntensityID: String?
     @State private var selectedDisplayID: String?
     @State private var selectedGroupName: String?
+    @State private var selectedRuleID: UUID?
 
     var body: some View {
         HStack(spacing: 0) {
@@ -795,6 +803,78 @@ struct SettingsView: View {
                     Spacer()
 
                     Text("Click a shortcut, then press keys · ⌫ to clear")
+                        .font(.caption)
+                        .foregroundStyle(ForelightStyle.muted)
+                }
+                .buttonStyle(.borderless)
+                .controlSize(.small)
+            }
+        case .rules:
+            VStack(alignment: .leading, spacing: 12) {
+                List(selection: $selectedRuleID) {
+                    ForEach(model.rules) { rule in
+                        HStack(spacing: 10) {
+                            Image(systemName: model.activeRuleID == rule.id ? "bolt.circle.fill" : "bolt.circle")
+                                .foregroundStyle(model.activeRuleID == rule.id ? ForelightStyle.green : ForelightStyle.muted2)
+                                .frame(width: 20)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(rule.name)
+                                Text("\(rule.conditionSummary) → \(rule.action.summary)")
+                                    .font(.caption)
+                                    .foregroundStyle(ForelightStyle.muted)
+                            }
+                            Spacer()
+                            Toggle("", isOn: Binding(
+                                get: { rule.isEnabled },
+                                set: { value in onSetRuleEnabled(rule.id, value) }
+                            ))
+                            .labelsHidden()
+                            .toggleStyle(.switch)
+                            .controlSize(.small)
+
+                            Button("Edit") { onEditRule(rule.id) }
+                                .buttonStyle(.bordered)
+                                .controlSize(.small)
+                                .fixedSize()
+                        }
+                        .padding(.vertical, 2)
+                        .tag(rule.id)
+                    }
+                }
+                .scrollContentBackground(.hidden)
+                .background(ForelightStyle.cardBackground)
+                .frame(minHeight: 240, maxHeight: .infinity)
+                .clipShape(RoundedRectangle(cornerRadius: ForelightStyle.cardCorner, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: ForelightStyle.cardCorner, style: .continuous)
+                        .strokeBorder(ForelightStyle.cardBorder, lineWidth: 1)
+                )
+                .overlay {
+                    if model.rules.isEmpty {
+                        Text("No rules yet. Use + to add one.")
+                            .foregroundStyle(ForelightStyle.muted)
+                    }
+                }
+
+                HStack(spacing: 6) {
+                    Button(action: onAddRule) {
+                        Image(systemName: "plus")
+                    }
+                    .help("Add a rule")
+
+                    Button {
+                        guard let selectedRuleID else { return }
+                        onDeleteRule(selectedRuleID)
+                        self.selectedRuleID = nil
+                    } label: {
+                        Image(systemName: "minus")
+                    }
+                    .disabled(selectedRuleID == nil)
+                    .help("Remove the selected rule")
+
+                    Spacer()
+
+                    Text("The last matching rule wins.")
                         .font(.caption)
                         .foregroundStyle(ForelightStyle.muted)
                 }

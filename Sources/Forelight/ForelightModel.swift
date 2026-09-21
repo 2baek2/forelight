@@ -69,6 +69,8 @@ final class ForelightModel: ObservableObject {
     @Published var cutoutRadius: Double
     @Published var cutoutPadding: Double
     @Published var dimTint: DimTint
+    @Published var rules: [Rule]
+    @Published var activeRuleID: UUID?
 
     init(
         isEnabled: Bool,
@@ -96,7 +98,9 @@ final class ForelightModel: ObservableObject {
         spotlightFeather: Double,
         cutoutRadius: Double,
         cutoutPadding: Double,
-        dimTint: DimTint
+        dimTint: DimTint,
+        rules: [Rule],
+        activeRuleID: UUID?
     ) {
         self.isEnabled = isEnabled
         self.currentApplicationName = currentApplicationName
@@ -124,5 +128,7 @@ final class ForelightModel: ObservableObject {
         self.cutoutRadius = cutoutRadius
         self.cutoutPadding = cutoutPadding
         self.dimTint = dimTint
+        self.rules = rules
+        self.activeRuleID = activeRuleID
     }
 }

@@ -15,6 +15,7 @@ Forelight is a small macOS menu bar utility that keeps the frontmost window clea
 - Focus Groups: save the current intensity, exceptions, per-app, per-display, and spotlight settings and switch between them from Settings, the status menu, `forelight-cli group <name>`, or a shortcut assigned per group
 - Cursor spotlight: optionally light the area around the pointer instead of (or as well as) the focused window, with adjustable radius and soft edge
 - Dim style: cutout corner radius and padding, plus black / warm / cool tints
+- Rules: turn dimming on or off, set intensity, apply a group, snooze, or set the spotlight automatically when conditions match (frontmost app, time window, power source, external display, idle, microphone in use)
 - Timed snooze and a capture-safe overlay that stays out of screen recordings
 - `forelight://` URL scheme (toggle, snooze, intensity, appearance, spotlight, group) and a `forelight-cli` helper
 - Dark, light, or system appearance

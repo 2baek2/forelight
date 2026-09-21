@@ -14,6 +14,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var settingsHostingController: NSHostingController<SettingsView>?
     private var aboutWindow: NSWindow?
     private var onboardingWindow: NSWindow?
+    private var ruleEditorWindow: NSWindow?
     private var enabled: Bool
     private var appearanceMode: AppearanceMode
     private var shortcut: KeyCombo
@@ -61,7 +62,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             spotlightFeather: controller.spotlightFeather,
             cutoutRadius: controller.cutoutRadius,
             cutoutPadding: controller.cutoutPadding,
-            dimTint: controller.dimTint
+            dimTint: controller.dimTint,
+            rules: controller.rules,
+            activeRuleID: nil
         )
         super.init()
     }
@@ -71,6 +74,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         configureNotifications()
         configureGlobalShortcut()
         configureURLEvents()
+        overlayController.onRuleAction = { [weak self] action in
+            self?.applyRuleAction(action)
+        }
         overlayController.start()
         overlayController.setEnabled(enabled)
         refreshUI()
@@ -501,6 +507,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         model.cutoutRadius = overlayController.cutoutRadius
         model.cutoutPadding = overlayController.cutoutPadding
         model.dimTint = overlayController.dimTint
+        model.rules = overlayController.rules
+        model.activeRuleID = overlayController.activeRuleID
         model.displays = NSScreen.screens.compactMap { screen -> DisplayIntensityEntry? in
             guard let info = DisplayIdentifier.info(for: screen) else { return nil }
             return DisplayIntensityEntry(
@@ -593,6 +601,81 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     private func setGroupShortcutRecording(_ recording: Bool) {
         shortcutGate.setSuppressed(recording)
+    }
+
+    // MARK: - Rules
+
+    private func applyRuleAction(_ action: RuleAction) {
+        switch action {
+        case .enable:
+            setEnabled(true)
+        case .disable:
+            setEnabled(false)
+        case .intensity(let value):
+            setIntensity(value)
+        case .group(let name):
+            applyGroup(named: name)
+        case .snooze(let minutes):
+            snooze(forMinutes: minutes)
+        case .spotlight(let mode):
+            setSpotlightMode(mode)
+        }
+        refreshUI()
+    }
+
+    private func addRule() {
+        presentRuleEditor(rule: Rule(name: "New Rule"))
+    }
+
+    private func editRule(id: UUID) {
+        guard let rule = overlayController.rules.first(where: { $0.id == id }) else { return }
+        presentRuleEditor(rule: rule)
+    }
+
+    private func deleteRule(id: UUID) {
+        overlayController.deleteRule(id: id)
+        refreshUI()
+    }
+
+    private func setRuleEnabled(id: UUID, enabled: Bool) {
+        overlayController.setRuleEnabled(id: id, enabled: enabled)
+        refreshUI()
+    }
+
+    private func saveRule(_ rule: Rule) {
+        overlayController.updateRule(rule)
+        ruleEditorWindow?.close()
+        ruleEditorWindow = nil
+        refreshUI()
+    }
+
+    private func presentRuleEditor(rule: Rule) {
+        if ruleEditorWindow == nil {
+            let window = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 560, height: 640),
+                styleMask: [.titled, .closable],
+                backing: .buffered,
+                defer: false
+            )
+            window.title = "Rule"
+            window.isReleasedWhenClosed = false
+            window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+            window.delegate = self
+            ruleEditorWindow = window
+        }
+
+        ruleEditorWindow?.contentViewController = NSHostingController(
+            rootView: RuleEditorView(
+                rule: rule,
+                groupNames: overlayController.focusGroups.map(\.name),
+                onSave: { [weak self] updated in self?.saveRule(updated) },
+                onCancel: { [weak self] in
+                    self?.ruleEditorWindow?.close()
+                    self?.ruleEditorWindow = nil
+                }
+            )
+        )
+        presentAuxiliaryWindow(ruleEditorWindow)
     }
 
     private func promptForGroupName() -> String? {
@@ -1006,6 +1089,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                     onDeleteGroup: { [weak self] name in self?.deleteGroup(named: name) },
                     onSetGroupShortcut: { [weak self] name, combo in self?.setGroupShortcut(groupName: name, combo: combo) },
                     onGroupShortcutRecordingChanged: { [weak self] recording in self?.setGroupShortcutRecording(recording) },
+                    onAddRule: { [weak self] in self?.addRule() },
+                    onEditRule: { [weak self] id in self?.editRule(id: id) },
+                    onDeleteRule: { [weak self] id in self?.deleteRule(id: id) },
+                    onSetRuleEnabled: { [weak self] id, enabled in self?.setRuleEnabled(id: id, enabled: enabled) },
                     onExportSettings: { [weak self] in self?.exportSettings() },
                     onImportSettings: { [weak self] in self?.importSettings() },
                     onResetSettings: { [weak self] in self?.resetSettings() },
@@ -1034,7 +1121,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             let settingsVisible = self.settingsWindow?.isVisible == true
             let aboutVisible = self.aboutWindow?.isVisible == true
             let onboardingVisible = self.onboardingWindow?.isVisible == true
-            if !settingsVisible, !aboutVisible, !onboardingVisible {
+            let ruleEditorVisible = self.ruleEditorWindow?.isVisible == true
+            if !settingsVisible, !aboutVisible, !onboardingVisible, !ruleEditorVisible {
                 NSApp.setActivationPolicy(.accessory)
             }
         }
