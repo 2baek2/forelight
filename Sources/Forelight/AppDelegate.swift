@@ -66,6 +66,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             cutoutAllWindows: controller.cutoutAllWindows,
             cutoutAnimationDuration: controller.cutoutAnimationDuration,
             vignetteStrength: controller.vignetteStrength,
+            blurEnabled: controller.blurEnabled,
+            blurTintRed: controller.blurTintRed,
+            blurTintGreen: controller.blurTintGreen,
+            blurTintBlue: controller.blurTintBlue,
+            blurTintAlpha: controller.blurTintAlpha,
             rules: controller.rules,
             activeRuleID: nil
         )
@@ -513,6 +518,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         model.cutoutAllWindows = overlayController.cutoutAllWindows
         model.cutoutAnimationDuration = overlayController.cutoutAnimationDuration
         model.vignetteStrength = overlayController.vignetteStrength
+        model.blurEnabled = overlayController.blurEnabled
+        model.blurTintRed = overlayController.blurTintRed
+        model.blurTintGreen = overlayController.blurTintGreen
+        model.blurTintBlue = overlayController.blurTintBlue
+        model.blurTintAlpha = overlayController.blurTintAlpha
         model.rules = overlayController.rules
         model.activeRuleID = overlayController.activeRuleID
         model.displays = NSScreen.screens.compactMap { screen -> DisplayIntensityEntry? in
@@ -985,6 +995,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         syncModel()
     }
 
+    private func setBlurEnabled(_ value: Bool) {
+        overlayController.setBlurEnabled(value)
+        refreshUI()
+    }
+
+    private func setBlurTint(red: Double, green: Double, blue: Double, alpha: Double) {
+        overlayController.setBlurTint(red: red, green: green, blue: blue, alpha: alpha)
+        syncModel()
+    }
+
     private func setAppearanceMode(_ mode: AppearanceMode) {
         appearanceMode = mode
         UserDefaults.standard.set(mode.rawValue, forKey: ForelightSettings.appearanceModeKey)
@@ -1094,6 +1114,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                     onSetCutoutAllWindows: { [weak self] value in self?.setCutoutAllWindows(value) },
                     onCutoutAnimationChanged: { [weak self] value in self?.setCutoutAnimationDuration(value) },
                     onVignetteChanged: { [weak self] value in self?.setVignetteStrength(value) },
+                    onSetBlurEnabled: { [weak self] value in self?.setBlurEnabled(value) },
+                    onBlurTintChanged: { [weak self] red, green, blue, alpha in
+                        self?.setBlurTint(red: red, green: green, blue: blue, alpha: alpha)
+                    },
                     onAppearanceModeChanged: { [weak self] mode in self?.setAppearanceMode(mode) },
                     onShortcutChanged: { [weak self] combo in self?.setShortcut(combo) },
                     onShortcutRecordingChanged: { [weak self] recording in self?.setShortcutRecording(recording) },

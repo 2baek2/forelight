@@ -28,6 +28,11 @@ struct SettingsDocument: Codable, Equatable {
     var cutoutAllWindows: Bool?
     var cutoutAnimationDuration: Double?
     var vignetteStrength: Double?
+    var blurEnabled: Bool?
+    var blurTintRed: Double?
+    var blurTintGreen: Double?
+    var blurTintBlue: Double?
+    var blurTintAlpha: Double?
     var rules: [Rule]?
     var focusGroups: [FocusGroup]?
 
@@ -68,6 +73,11 @@ struct SettingsDocument: Codable, Equatable {
         document.cutoutAllWindows = defaults.object(forKey: ForelightSettings.cutoutAllWindowsKey) as? Bool
         document.cutoutAnimationDuration = defaults.object(forKey: ForelightSettings.cutoutAnimationKey) as? Double
         document.vignetteStrength = defaults.object(forKey: ForelightSettings.vignetteKey) as? Double
+        document.blurEnabled = defaults.object(forKey: ForelightSettings.blurEnabledKey) as? Bool
+        document.blurTintRed = defaults.object(forKey: ForelightSettings.blurTintRedKey) as? Double
+        document.blurTintGreen = defaults.object(forKey: ForelightSettings.blurTintGreenKey) as? Double
+        document.blurTintBlue = defaults.object(forKey: ForelightSettings.blurTintBlueKey) as? Double
+        document.blurTintAlpha = defaults.object(forKey: ForelightSettings.blurTintAlphaKey) as? Double
         if let data = defaults.data(forKey: ForelightSettings.rulesKey) {
             document.rules = try? JSONDecoder().decode([Rule].self, from: data)
         }
@@ -141,6 +151,21 @@ struct SettingsDocument: Codable, Equatable {
         }
         if let vignetteStrength {
             defaults.set(vignetteStrength, forKey: ForelightSettings.vignetteKey)
+        }
+        if let blurEnabled {
+            defaults.set(blurEnabled, forKey: ForelightSettings.blurEnabledKey)
+        }
+        if let blurTintRed {
+            defaults.set(blurTintRed, forKey: ForelightSettings.blurTintRedKey)
+        }
+        if let blurTintGreen {
+            defaults.set(blurTintGreen, forKey: ForelightSettings.blurTintGreenKey)
+        }
+        if let blurTintBlue {
+            defaults.set(blurTintBlue, forKey: ForelightSettings.blurTintBlueKey)
+        }
+        if let blurTintAlpha {
+            defaults.set(blurTintAlpha, forKey: ForelightSettings.blurTintAlphaKey)
         }
         if let rules, let data = try? JSONEncoder().encode(rules) {
             defaults.set(data, forKey: ForelightSettings.rulesKey)

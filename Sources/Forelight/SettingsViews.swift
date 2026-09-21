@@ -241,6 +241,8 @@ struct SettingsView: View {
     let onSetCutoutAllWindows: (Bool) -> Void
     let onCutoutAnimationChanged: (Double) -> Void
     let onVignetteChanged: (Double) -> Void
+    let onSetBlurEnabled: (Bool) -> Void
+    let onBlurTintChanged: (Double, Double, Double, Double) -> Void
     let onAppearanceModeChanged: (AppearanceMode) -> Void
     let onShortcutChanged: (KeyCombo) -> Void
     let onShortcutRecordingChanged: (Bool) -> Void
@@ -322,6 +324,23 @@ struct SettingsView: View {
         }
         .frame(minWidth: 700, minHeight: 600)
         .tint(ForelightStyle.accent)
+    }
+
+    private var blurColorBinding: Binding<Color> {
+        Binding(
+            get: {
+                Color(red: model.blurTintRed, green: model.blurTintGreen, blue: model.blurTintBlue)
+            },
+            set: { newValue in
+                let color = NSColor(newValue).usingColorSpace(.sRGB) ?? .black
+                onBlurTintChanged(
+                    Double(color.redComponent),
+                    Double(color.greenComponent),
+                    Double(color.blueComponent),
+                    model.blurTintAlpha
+                )
+            }
+        )
     }
 
     @ViewBuilder
@@ -543,6 +562,45 @@ struct SettingsView: View {
                             range: ForelightSettings.vignetteRange,
                             suffix: "",
                             onChanged: onVignetteChanged
+                        )
+                        CardDivider()
+                        CardRow(
+                            title: "Blur",
+                            subtitle: "Frost the dimmed area behind the cutouts",
+                            systemImage: "drop"
+                        ) {
+                            Toggle("", isOn: Binding(
+                                get: { model.blurEnabled },
+                                set: { value in onSetBlurEnabled(value) }
+                            ))
+                            .labelsHidden()
+                            .toggleStyle(.switch)
+                            .controlSize(.small)
+                        }
+                        CardDivider()
+                        HStack {
+                            Text("Blur color")
+                                .foregroundStyle(ForelightStyle.text)
+                            Spacer()
+                            ColorPicker("", selection: blurColorBinding, supportsOpacity: false)
+                                .labelsHidden()
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 10)
+                        CardDivider()
+                        SliderRow(
+                            title: "Blur strength",
+                            value: model.blurTintAlpha,
+                            range: 0...1,
+                            suffix: "",
+                            onChanged: { value in
+                                onBlurTintChanged(
+                                    model.blurTintRed,
+                                    model.blurTintGreen,
+                                    model.blurTintBlue,
+                                    value
+                                )
+                            }
                         )
                     }
                 }

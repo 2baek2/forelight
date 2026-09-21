@@ -72,6 +72,11 @@ final class ForelightModel: ObservableObject {
     @Published var cutoutAllWindows: Bool
     @Published var cutoutAnimationDuration: Double
     @Published var vignetteStrength: Double
+    @Published var blurEnabled: Bool
+    @Published var blurTintRed: Double
+    @Published var blurTintGreen: Double
+    @Published var blurTintBlue: Double
+    @Published var blurTintAlpha: Double
     @Published var rules: [Rule]
     @Published var activeRuleID: UUID?
 
@@ -105,6 +110,11 @@ final class ForelightModel: ObservableObject {
         cutoutAllWindows: Bool,
         cutoutAnimationDuration: Double,
         vignetteStrength: Double,
+        blurEnabled: Bool,
+        blurTintRed: Double,
+        blurTintGreen: Double,
+        blurTintBlue: Double,
+        blurTintAlpha: Double,
         rules: [Rule],
         activeRuleID: UUID?
     ) {
@@ -137,6 +147,11 @@ final class ForelightModel: ObservableObject {
         self.cutoutAllWindows = cutoutAllWindows
         self.cutoutAnimationDuration = cutoutAnimationDuration
         self.vignetteStrength = vignetteStrength
+        self.blurEnabled = blurEnabled
+        self.blurTintRed = blurTintRed
+        self.blurTintGreen = blurTintGreen
+        self.blurTintBlue = blurTintBlue
+        self.blurTintAlpha = blurTintAlpha
         self.rules = rules
         self.activeRuleID = activeRuleID
     }
