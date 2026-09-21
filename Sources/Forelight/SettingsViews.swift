@@ -238,6 +238,9 @@ struct SettingsView: View {
     let onCutoutRadiusChanged: (Double) -> Void
     let onCutoutPaddingChanged: (Double) -> Void
     let onDimTintChanged: (DimTint) -> Void
+    let onSetCutoutAllWindows: (Bool) -> Void
+    let onCutoutAnimationChanged: (Double) -> Void
+    let onVignetteChanged: (Double) -> Void
     let onAppearanceModeChanged: (AppearanceMode) -> Void
     let onShortcutChanged: (KeyCombo) -> Void
     let onShortcutRecordingChanged: (Bool) -> Void
@@ -510,6 +513,36 @@ struct SettingsView: View {
                             range: ForelightSettings.cutoutPaddingRange,
                             suffix: " pt",
                             onChanged: onCutoutPaddingChanged
+                        )
+                        CardDivider()
+                        CardRow(
+                            title: "All windows",
+                            subtitle: "Keep every window of the frontmost app clear",
+                            systemImage: "rectangle.on.rectangle"
+                        ) {
+                            Toggle("", isOn: Binding(
+                                get: { model.cutoutAllWindows },
+                                set: { value in onSetCutoutAllWindows(value) }
+                            ))
+                            .labelsHidden()
+                            .toggleStyle(.switch)
+                            .controlSize(.small)
+                        }
+                        CardDivider()
+                        SliderRow(
+                            title: "Cutout animation",
+                            value: model.cutoutAnimationDuration,
+                            range: ForelightSettings.cutoutAnimationRange,
+                            suffix: "s",
+                            onChanged: onCutoutAnimationChanged
+                        )
+                        CardDivider()
+                        SliderRow(
+                            title: "Vignette",
+                            value: model.vignetteStrength,
+                            range: ForelightSettings.vignetteRange,
+                            suffix: "",
+                            onChanged: onVignetteChanged
                         )
                     }
                 }

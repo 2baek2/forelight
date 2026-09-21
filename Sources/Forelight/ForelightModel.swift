@@ -69,6 +69,9 @@ final class ForelightModel: ObservableObject {
     @Published var cutoutRadius: Double
     @Published var cutoutPadding: Double
     @Published var dimTint: DimTint
+    @Published var cutoutAllWindows: Bool
+    @Published var cutoutAnimationDuration: Double
+    @Published var vignetteStrength: Double
     @Published var rules: [Rule]
     @Published var activeRuleID: UUID?
 
@@ -99,6 +102,9 @@ final class ForelightModel: ObservableObject {
         cutoutRadius: Double,
         cutoutPadding: Double,
         dimTint: DimTint,
+        cutoutAllWindows: Bool,
+        cutoutAnimationDuration: Double,
+        vignetteStrength: Double,
         rules: [Rule],
         activeRuleID: UUID?
     ) {
@@ -128,6 +134,9 @@ final class ForelightModel: ObservableObject {
         self.cutoutRadius = cutoutRadius
         self.cutoutPadding = cutoutPadding
         self.dimTint = dimTint
+        self.cutoutAllWindows = cutoutAllWindows
+        self.cutoutAnimationDuration = cutoutAnimationDuration
+        self.vignetteStrength = vignetteStrength
         self.rules = rules
         self.activeRuleID = activeRuleID
     }

@@ -21,6 +21,9 @@ enum ForelightSettings {
     static let cutoutRadiusKey = "cutoutCornerRadius"
     static let cutoutPaddingKey = "cutoutPadding"
     static let dimTintKey = "dimTint"
+    static let cutoutAllWindowsKey = "cutoutAllWindows"
+    static let cutoutAnimationKey = "cutoutAnimationDuration"
+    static let vignetteKey = "vignetteStrength"
     static let rulesKey = "rules"
     static let focusGroupsKey = "focusGroups"
     static let hasCompletedOnboardingKey = "hasCompletedOnboarding"
@@ -29,6 +32,8 @@ enum ForelightSettings {
     static let spotlightFeatherRange: ClosedRange<Double> = 0...160
     static let cutoutRadiusRange: ClosedRange<Double> = 0...40
     static let cutoutPaddingRange: ClosedRange<Double> = 0...40
+    static let cutoutAnimationRange: ClosedRange<Double> = 0...0.40
+    static let vignetteRange: ClosedRange<Double> = 0...0.80
 
     /// Every key that holds user settings, used by export, import and reset.
     static let allKeys: [String] = [
@@ -50,6 +55,9 @@ enum ForelightSettings {
         cutoutRadiusKey,
         cutoutPaddingKey,
         dimTintKey,
+        cutoutAllWindowsKey,
+        cutoutAnimationKey,
+        vignetteKey,
         rulesKey,
         focusGroupsKey
     ]
@@ -96,6 +104,9 @@ final class OverlayController {
     private(set) var cutoutRadius: Double
     private(set) var cutoutPadding: Double
     private(set) var dimTint: DimTint
+    private(set) var cutoutAllWindows: Bool
+    private(set) var cutoutAnimationDuration: Double
+    private(set) var vignetteStrength: Double
     private var isEnabled = true
     private var exceptions: [String: Bool]
     private var appIntensities: [String: Double]
@@ -184,6 +195,9 @@ final class OverlayController {
         cutoutRadius = defaults.object(forKey: ForelightSettings.cutoutRadiusKey) as? Double ?? 8
         cutoutPadding = defaults.object(forKey: ForelightSettings.cutoutPaddingKey) as? Double ?? 2
         dimTint = DimTint(rawValue: defaults.string(forKey: ForelightSettings.dimTintKey) ?? "") ?? .black
+        cutoutAllWindows = defaults.object(forKey: ForelightSettings.cutoutAllWindowsKey) as? Bool ?? false
+        cutoutAnimationDuration = defaults.object(forKey: ForelightSettings.cutoutAnimationKey) as? Double ?? 0.12
+        vignetteStrength = defaults.object(forKey: ForelightSettings.vignetteKey) as? Double ?? 0
     }
 
     var currentApplicationName: String? {
@@ -563,6 +577,9 @@ final class OverlayController {
         cutoutRadius = defaults.object(forKey: ForelightSettings.cutoutRadiusKey) as? Double ?? 8
         cutoutPadding = defaults.object(forKey: ForelightSettings.cutoutPaddingKey) as? Double ?? 2
         dimTint = DimTint(rawValue: defaults.string(forKey: ForelightSettings.dimTintKey) ?? "") ?? .black
+        cutoutAllWindows = defaults.object(forKey: ForelightSettings.cutoutAllWindowsKey) as? Bool ?? false
+        cutoutAnimationDuration = defaults.object(forKey: ForelightSettings.cutoutAnimationKey) as? Double ?? 0.12
+        vignetteStrength = defaults.object(forKey: ForelightSettings.vignetteKey) as? Double ?? 0
         activeGroupName = nil
         updateSpotlightTimer()
         refresh()
@@ -716,8 +733,36 @@ final class OverlayController {
         refresh()
     }
 
+    func setCutoutAllWindows(_ value: Bool) {
+        cutoutAllWindows = value
+        UserDefaults.standard.set(value, forKey: ForelightSettings.cutoutAllWindowsKey)
+        refresh()
+    }
+
+    func setCutoutAnimationDuration(_ value: Double) {
+        cutoutAnimationDuration = min(
+            max(value, ForelightSettings.cutoutAnimationRange.lowerBound),
+            ForelightSettings.cutoutAnimationRange.upperBound
+        )
+        UserDefaults.standard.set(cutoutAnimationDuration, forKey: ForelightSettings.cutoutAnimationKey)
+    }
+
+    func setVignetteStrength(_ value: Double) {
+        vignetteStrength = min(
+            max(value, ForelightSettings.vignetteRange.lowerBound),
+            ForelightSettings.vignetteRange.upperBound
+        )
+        UserDefaults.standard.set(vignetteStrength, forKey: ForelightSettings.vignetteKey)
+        refresh()
+    }
+
     private var dimStyle: DimStyle {
-        DimStyle(cornerRadius: cutoutRadius, padding: cutoutPadding, tint: dimTint)
+        DimStyle(
+            cornerRadius: cutoutRadius,
+            padding: cutoutPadding,
+            tint: dimTint,
+            vignette: vignetteStrength
+        )
     }
 
     private func updateSpotlightTimer() {
@@ -849,23 +894,11 @@ final class OverlayController {
                 continue
             }
 
-            let cutout: CGRect?
-            if spotlightMode.includesWindow {
-                cutout = focusedWindowFrame.flatMap { frame in
-                    let intersection = frame.intersection(overlay.frame)
-                    return intersection.isNull || intersection.isEmpty ? nil : intersection
-                } ?? ActiveWindowLocator.frontmostWindow(
-                    on: overlay.targetScreen,
-                    excluding: ProcessInfo.processInfo.processIdentifier,
-                    preferredOwnerPID: observedPID
-                )?.cocoaFrame(on: overlay.targetScreen)
-            } else {
-                cutout = nil
-            }
             overlay.update(
-                cutout: cutout,
+                cutouts: cutouts(for: overlay),
                 alpha: resolvedIntensity(for: overlay.targetScreen),
-                style: dimStyle
+                style: dimStyle,
+                animationDuration: cutoutAnimationDuration
             )
             overlay.restoreImmediately()
         }
@@ -884,6 +917,65 @@ final class OverlayController {
             appEnabled: appEnabled,
             displayOverride: displayOverride
         )
+    }
+
+    /// The window cutouts for one overlay: either every window of the frontmost
+    /// app, or just the focused window.
+    private func cutouts(for overlay: OverlayWindow) -> [CGRect] {
+        guard spotlightMode.includesWindow else { return [] }
+
+        if cutoutAllWindows {
+            let frames = allWindowFrames(for: overlay)
+            if !frames.isEmpty {
+                return frames
+            }
+        }
+
+        if let frame = focusedWindowFrame {
+            let intersection = frame.intersection(overlay.frame)
+            if !intersection.isNull, !intersection.isEmpty {
+                return [intersection]
+            }
+        }
+
+        if let snapshot = ActiveWindowLocator.frontmostWindow(
+            on: overlay.targetScreen,
+            excluding: ownPID,
+            preferredOwnerPID: observedPID
+        ), let frame = snapshot.cocoaFrame(on: overlay.targetScreen) {
+            return [frame]
+        }
+
+        return []
+    }
+
+    private func allWindowFrames(for overlay: OverlayWindow) -> [CGRect] {
+        if AXIsProcessTrusted(), let axApplication {
+            let frames = axWindowFrames(axApplication).compactMap { frame -> CGRect? in
+                let intersection = frame.intersection(overlay.frame)
+                return intersection.isNull || intersection.isEmpty ? nil : intersection
+            }
+            if !frames.isEmpty {
+                return frames
+            }
+        }
+
+        guard observedPID != 0 else { return [] }
+        return ActiveWindowLocator.windows(on: overlay.targetScreen, ownerPID: observedPID)
+            .compactMap { $0.cocoaFrame(on: overlay.targetScreen) }
+    }
+
+    private func axWindowFrames(_ application: AXUIElement) -> [CGRect] {
+        var value: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(
+            application,
+            kAXWindowsAttribute as CFString,
+            &value
+        ) == .success,
+        let windows = value as? [AXUIElement] else {
+            return []
+        }
+        return windows.compactMap { frame(of: $0) }
     }
 
     private func requestAccessibilityPermissionIfNeeded() {
@@ -1058,22 +1150,30 @@ final class OverlayController {
             return
         }
 
+        focusedWindowFrame = frame(of: axFocusedWindow)
+    }
+
+    /// Reads an accessibility element's frame and converts it into Cocoa global
+    /// coordinates.
+    private func frame(of element: AXUIElement) -> CGRect? {
+        AXUIElementSetMessagingTimeout(element, 0.4)
+
         var positionValue: CFTypeRef?
         var sizeValue: CFTypeRef?
         guard AXUIElementCopyAttributeValue(
-            axFocusedWindow,
+            element,
             kAXPositionAttribute as CFString,
             &positionValue
         ) == .success,
         AXUIElementCopyAttributeValue(
-            axFocusedWindow,
+            element,
             kAXSizeAttribute as CFString,
             &sizeValue
         ) == .success,
         let positionAXValue = axValue(positionValue),
-        let sizeAXValue = axValue(sizeValue) else {
-            focusedWindowFrame = nil
-            return
+        let sizeAXValue = axValue(sizeValue),
+        let primaryScreen = NSScreen.screens.first else {
+            return nil
         }
 
         var position = CGPoint.zero
@@ -1081,13 +1181,11 @@ final class OverlayController {
         guard AXValueGetValue(positionAXValue, .cgPoint, &position),
               AXValueGetValue(sizeAXValue, .cgSize, &size),
               size.width > 30,
-              size.height > 30,
-              let primaryScreen = NSScreen.screens.first else {
-            focusedWindowFrame = nil
-            return
+              size.height > 30 else {
+            return nil
         }
 
-        focusedWindowFrame = CGRect(
+        return CGRect(
             x: position.x,
             y: primaryScreen.frame.maxY - position.y - size.height,
             width: size.width,

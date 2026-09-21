@@ -63,6 +63,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             cutoutRadius: controller.cutoutRadius,
             cutoutPadding: controller.cutoutPadding,
             dimTint: controller.dimTint,
+            cutoutAllWindows: controller.cutoutAllWindows,
+            cutoutAnimationDuration: controller.cutoutAnimationDuration,
+            vignetteStrength: controller.vignetteStrength,
             rules: controller.rules,
             activeRuleID: nil
         )
@@ -507,6 +510,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         model.cutoutRadius = overlayController.cutoutRadius
         model.cutoutPadding = overlayController.cutoutPadding
         model.dimTint = overlayController.dimTint
+        model.cutoutAllWindows = overlayController.cutoutAllWindows
+        model.cutoutAnimationDuration = overlayController.cutoutAnimationDuration
+        model.vignetteStrength = overlayController.vignetteStrength
         model.rules = overlayController.rules
         model.activeRuleID = overlayController.activeRuleID
         model.displays = NSScreen.screens.compactMap { screen -> DisplayIntensityEntry? in
@@ -964,6 +970,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         refreshUI()
     }
 
+    private func setCutoutAllWindows(_ value: Bool) {
+        overlayController.setCutoutAllWindows(value)
+        refreshUI()
+    }
+
+    private func setCutoutAnimationDuration(_ value: Double) {
+        overlayController.setCutoutAnimationDuration(value)
+        syncModel()
+    }
+
+    private func setVignetteStrength(_ value: Double) {
+        overlayController.setVignetteStrength(value)
+        syncModel()
+    }
+
     private func setAppearanceMode(_ mode: AppearanceMode) {
         appearanceMode = mode
         UserDefaults.standard.set(mode.rawValue, forKey: ForelightSettings.appearanceModeKey)
@@ -1070,6 +1091,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                     onCutoutRadiusChanged: { [weak self] value in self?.setCutoutRadius(value) },
                     onCutoutPaddingChanged: { [weak self] value in self?.setCutoutPadding(value) },
                     onDimTintChanged: { [weak self] tint in self?.setDimTint(tint) },
+                    onSetCutoutAllWindows: { [weak self] value in self?.setCutoutAllWindows(value) },
+                    onCutoutAnimationChanged: { [weak self] value in self?.setCutoutAnimationDuration(value) },
+                    onVignetteChanged: { [weak self] value in self?.setVignetteStrength(value) },
                     onAppearanceModeChanged: { [weak self] mode in self?.setAppearanceMode(mode) },
                     onShortcutChanged: { [weak self] combo in self?.setShortcut(combo) },
                     onShortcutRecordingChanged: { [weak self] recording in self?.setShortcutRecording(recording) },

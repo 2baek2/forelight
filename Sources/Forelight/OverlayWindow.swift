@@ -47,14 +47,27 @@ struct DimStyle {
     var cornerRadius: CGFloat
     var padding: CGFloat
     var tint: DimTint
+    var vignette: Double
 
-    static let `default` = DimStyle(cornerRadius: 8, padding: 2, tint: .black)
+    static let `default` = DimStyle(cornerRadius: 8, padding: 2, tint: .black, vignette: 0)
 }
 
 struct Spotlight {
     var center: CGPoint
     var radius: CGFloat
     var feather: CGFloat
+}
+
+enum RectAnimation {
+    static func lerp(_ from: CGRect, _ to: CGRect, progress: Double) -> CGRect {
+        let t = min(max(progress, 0), 1)
+        return CGRect(
+            x: from.origin.x + (to.origin.x - from.origin.x) * t,
+            y: from.origin.y + (to.origin.y - from.origin.y) * t,
+            width: from.width + (to.width - from.width) * t,
+            height: from.height + (to.height - from.height) * t
+        )
+    }
 }
 
 final class OverlayWindow: NSWindow {
@@ -90,11 +103,13 @@ final class OverlayWindow: NSWindow {
     override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
 
-    func update(cutout: CGRect?, alpha: Double, style: DimStyle) {
-        overlayView.cutout = cutout.map { convertToLocalCoordinates($0) }
+    func update(cutouts: [CGRect], alpha: Double, style: DimStyle, animationDuration: TimeInterval) {
         overlayView.alpha = alpha
         overlayView.style = style
-        overlayView.needsDisplay = true
+        overlayView.setCutouts(
+            cutouts.map { convertToLocalCoordinates($0) },
+            animationDuration: animationDuration
+        )
     }
 
     func updateSpotlight(globalCenter: CGPoint, radius: CGFloat, feather: CGFloat) {
@@ -169,12 +184,40 @@ final class OverlayWindow: NSWindow {
 }
 
 final class OverlayView: NSView {
-    var cutout: CGRect?
-    var alpha: Double = 0.45
-    var style: DimStyle = .default
+    var alpha: Double = 0.45 {
+        didSet { needsDisplay = true }
+    }
+
+    var style: DimStyle = .default {
+        didSet { needsDisplay = true }
+    }
+
     private(set) var spotlight: Spotlight?
 
+    private var displayedCutouts: [CGRect] = []
+    private var cutoutTimer: Timer?
+    private var cutoutAnimationStart = Date.distantPast
+    private var cutoutFrom: [CGRect] = []
+    private var cutoutTo: [CGRect] = []
+    private var cutoutDuration: TimeInterval = 0
+
     override var isOpaque: Bool { false }
+
+    /// Updates the window cutouts, optionally morphing from the previous ones.
+    func setCutouts(_ rects: [CGRect], animationDuration: TimeInterval) {
+        if animationDuration <= 0 || displayedCutouts.count != rects.count || displayedCutouts == rects {
+            stopCutoutAnimation()
+            displayedCutouts = rects
+            needsDisplay = true
+            return
+        }
+
+        cutoutFrom = displayedCutouts
+        cutoutTo = rects
+        cutoutDuration = animationDuration
+        cutoutAnimationStart = Date()
+        startCutoutAnimationIfNeeded()
+    }
 
     /// Updates the cursor spotlight and invalidates only the affected region so
     /// moving the pointer does not redraw the whole screen.
@@ -195,37 +238,23 @@ final class OverlayView: NSView {
         }
     }
 
-    private func spotlightDirtyRect(for spotlight: Spotlight?) -> CGRect? {
-        guard let spotlight, spotlight.radius > 0 else { return nil }
-        let margin = spotlight.radius + 2
-        let rect = CGRect(
-            x: spotlight.center.x - margin,
-            y: spotlight.center.y - margin,
-            width: margin * 2,
-            height: margin * 2
-        )
-        let clipped = rect.intersection(bounds)
-        return clipped.isNull || clipped.isEmpty ? nil : clipped
-    }
-
     override func draw(_ dirtyRect: NSRect) {
         guard let context = NSGraphicsContext.current?.cgContext else { return }
         context.saveGState()
         defer { context.restoreGState() }
 
         let overlayPath = NSBezierPath(rect: bounds)
-        if let cutout {
+        for cutout in displayedCutouts {
             let safeCutout = cutout.intersection(bounds)
-            if !safeCutout.isNull, !safeCutout.isEmpty {
-                overlayPath.append(
-                    NSBezierPath(
-                        roundedRect: safeCutout.insetBy(dx: -style.padding, dy: -style.padding),
-                        xRadius: style.cornerRadius,
-                        yRadius: style.cornerRadius
-                    )
-                )
-                overlayPath.windingRule = .evenOdd
-            }
+            guard !safeCutout.isNull, !safeCutout.isEmpty else { continue }
+            overlayPath.append(cutoutPath(for: safeCutout))
+            overlayPath.windingRule = .evenOdd
+        }
+
+        if style.vignette > 0 {
+            // Extra dim at the edges first, then keep the cutouts clear.
+            drawVignette(in: context)
+            clearCutouts(in: context)
         }
 
         style.tint.color.withAlphaComponent(alpha).setFill()
@@ -233,6 +262,55 @@ final class OverlayView: NSView {
 
         if let spotlight, spotlight.radius > 0 {
             punchFeatheredHole(spotlight, in: context)
+        }
+    }
+
+    // MARK: - Drawing helpers
+
+    private func cutoutPath(for rect: CGRect) -> NSBezierPath {
+        NSBezierPath(
+            roundedRect: rect.insetBy(dx: -style.padding, dy: -style.padding),
+            xRadius: style.cornerRadius,
+            yRadius: style.cornerRadius
+        )
+    }
+
+    private func drawVignette(in context: CGContext) {
+        let center = CGPoint(x: bounds.midX, y: bounds.midY)
+        let radius = max(hypot(bounds.width, bounds.height) / 2, 1)
+        let colors = [
+            style.tint.color.withAlphaComponent(0).cgColor,
+            style.tint.color.withAlphaComponent(style.vignette).cgColor
+        ] as CFArray
+
+        guard let gradient = CGGradient(
+            colorsSpace: CGColorSpaceCreateDeviceRGB(),
+            colors: colors,
+            locations: [0, 1]
+        ) else {
+            return
+        }
+
+        context.drawRadialGradient(
+            gradient,
+            startCenter: center,
+            startRadius: radius * 0.35,
+            endCenter: center,
+            endRadius: radius,
+            options: [.drawsAfterEndLocation]
+        )
+    }
+
+    /// Clears the vignette (and anything else) inside the cutouts so they stay
+    /// fully transparent.
+    private func clearCutouts(in context: CGContext) {
+        context.setBlendMode(.destinationOut)
+        defer { context.setBlendMode(.normal) }
+
+        for cutout in displayedCutouts {
+            let safeCutout = cutout.intersection(bounds)
+            guard !safeCutout.isNull, !safeCutout.isEmpty else { continue }
+            cutoutPath(for: safeCutout).fill()
         }
     }
 
@@ -277,5 +355,51 @@ final class OverlayView: NSView {
             endRadius: radius,
             options: []
         )
+    }
+
+    private func spotlightDirtyRect(for spotlight: Spotlight?) -> CGRect? {
+        guard let spotlight, spotlight.radius > 0 else { return nil }
+        let margin = spotlight.radius + 2
+        let rect = CGRect(
+            x: spotlight.center.x - margin,
+            y: spotlight.center.y - margin,
+            width: margin * 2,
+            height: margin * 2
+        )
+        let clipped = rect.intersection(bounds)
+        return clipped.isNull || clipped.isEmpty ? nil : clipped
+    }
+
+    // MARK: - Cutout animation
+
+    private func startCutoutAnimationIfNeeded() {
+        guard cutoutTimer == nil else { return }
+        cutoutTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.stepCutoutAnimation()
+            }
+        }
+    }
+
+    private func stepCutoutAnimation() {
+        let elapsed = Date().timeIntervalSince(cutoutAnimationStart)
+        let progress = cutoutDuration > 0 ? min(max(elapsed / cutoutDuration, 0), 1) : 1
+        let eased = 1 - pow(1 - progress, 3)
+
+        displayedCutouts = zip(cutoutFrom, cutoutTo).map {
+            RectAnimation.lerp($0, $1, progress: eased)
+        }
+        needsDisplay = true
+
+        if progress >= 1 {
+            stopCutoutAnimation()
+            displayedCutouts = cutoutTo
+            needsDisplay = true
+        }
+    }
+
+    private func stopCutoutAnimation() {
+        cutoutTimer?.invalidate()
+        cutoutTimer = nil
     }
 }

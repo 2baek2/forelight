@@ -94,6 +94,41 @@ enum ActiveWindowLocator {
         return fallback
     }
 
+    static func windows(
+        in windowList: [[String: Any]],
+        displayBounds: CGRect,
+        ownerPID: pid_t
+    ) -> [WindowSnapshot] {
+        var snapshots: [WindowSnapshot] = []
+        for info in windowList {
+            guard let pid = info[kCGWindowOwnerPID as String] as? pid_t,
+                  pid == ownerPID,
+                  !isComputerUseHelper(ownerPID: pid, info: info),
+                  let layer = info[kCGWindowLayer as String] as? Int,
+                  layer == 0,
+                  let boundsDictionary = info[kCGWindowBounds as String] as? NSDictionary,
+                  let bounds = CGRect(dictionaryRepresentation: boundsDictionary),
+                  bounds.width > 30,
+                  bounds.height > 30,
+                  bounds.intersects(displayBounds) else {
+                continue
+            }
+            snapshots.append(WindowSnapshot(bounds: bounds))
+        }
+        return snapshots
+    }
+
+    static func windows(on screen: NSScreen, ownerPID: pid_t) -> [WindowSnapshot] {
+        guard let displayID = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID else {
+            return []
+        }
+        let windowList = CGWindowListCopyWindowInfo(
+            [.optionOnScreenOnly, .excludeDesktopElements],
+            kCGNullWindowID
+        ) as? [[String: Any]] ?? []
+        return windows(in: windowList, displayBounds: CGDisplayBounds(displayID), ownerPID: ownerPID)
+    }
+
     private static func isComputerUseHelper(ownerPID: pid_t, info: [String: Any]) -> Bool {
         let ownerName = info[kCGWindowOwnerName as String] as? String
         return ownerName?.localizedCaseInsensitiveContains("Computer Use") == true
