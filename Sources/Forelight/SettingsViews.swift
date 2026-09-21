@@ -277,6 +277,7 @@ struct SettingsView: View {
     @State private var selectedDisplayID: String?
     @State private var selectedGroupName: String?
     @State private var selectedRuleID: UUID?
+    @State private var tintColorState: Color = .black
 
     var body: some View {
         HStack(spacing: 0) {
@@ -322,31 +323,28 @@ struct SettingsView: View {
         }
         .frame(minWidth: 700, minHeight: 600)
         .tint(ForelightStyle.accent)
-    }
-
-    private var tintColorBinding: Binding<Color> {
-        Binding(
-            get: {
-                Color(red: model.tintRed, green: model.tintGreen, blue: model.tintBlue)
-            },
-            set: { newValue in
-                let color = NSColor(newValue).usingColorSpace(.sRGB) ?? .black
-                onTintChanged(
-                    Double(color.redComponent),
-                    Double(color.greenComponent),
-                    Double(color.blueComponent)
-                )
-            }
-        )
+        .onAppear { syncTintState() }
+        .onChange(of: model.tintRed) { _ in syncTintState() }
+        .onChange(of: model.tintGreen) { _ in syncTintState() }
+        .onChange(of: model.tintBlue) { _ in syncTintState() }
     }
 
     private func applyTintPreset(_ preset: DimTint) {
         let color = preset.color.usingColorSpace(.sRGB) ?? .black
+        tintColorState = Color(
+            red: Double(color.redComponent),
+            green: Double(color.greenComponent),
+            blue: Double(color.blueComponent)
+        )
         onTintChanged(
             Double(color.redComponent),
             Double(color.greenComponent),
             Double(color.blueComponent)
         )
+    }
+
+    private func syncTintState() {
+        tintColorState = Color(red: model.tintRed, green: model.tintGreen, blue: model.tintBlue)
     }
 
     @ViewBuilder
@@ -511,7 +509,18 @@ struct SettingsView: View {
                                 Text("Tint")
                                     .foregroundStyle(ForelightStyle.text)
                                 Spacer()
-                                ColorPicker("", selection: tintColorBinding, supportsOpacity: false)
+                                ColorPicker("", selection: Binding(
+                                    get: { tintColorState },
+                                    set: { newValue in
+                                        tintColorState = newValue
+                                        let color = NSColor(newValue).usingColorSpace(.sRGB) ?? .black
+                                        onTintChanged(
+                                            Double(color.redComponent),
+                                            Double(color.greenComponent),
+                                            Double(color.blueComponent)
+                                        )
+                                    }
+                                ), supportsOpacity: false)
                                     .labelsHidden()
                             }
                             HStack(spacing: 6) {
