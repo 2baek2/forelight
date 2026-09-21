@@ -9,6 +9,8 @@ struct MenuPanelView: View {
     let onToggleExclusion: () -> Void
     let onToggleAppIntensityOverride: () -> Void
     let onAppearanceModeChanged: (AppearanceMode) -> Void
+    let onSnooze: (Int) -> Void
+    let onCancelSnooze: () -> Void
     let onOpenSettings: () -> Void
     let onQuit: () -> Void
 
@@ -68,6 +70,25 @@ struct MenuPanelView: View {
                         .toggleStyle(.switch)
                         .controlSize(.small)
                     }
+                }
+            }
+
+            Card {
+                CardRow(
+                    title: "Snooze",
+                    subtitle: snoozeSubtitle,
+                    systemImage: "moon.zzz"
+                ) {
+                    Menu(model.isSnoozed ? "Paused" : "Snooze") {
+                        Button("15 minutes") { onSnooze(15) }
+                        Button("30 minutes") { onSnooze(30) }
+                        Button("1 hour") { onSnooze(60) }
+                        Divider()
+                        Button("Resume now") { onCancelSnooze() }
+                            .disabled(!model.isSnoozed)
+                    }
+                    .menuStyle(.borderlessButton)
+                    .frame(width: 96)
                 }
             }
 
@@ -143,6 +164,18 @@ struct MenuPanelView: View {
         }
         return "All apps"
     }
+
+    private var snoozeSubtitle: String {
+        guard let until = model.snoozeUntil else { return "Temporarily pause dimming" }
+        return "Paused until \(Self.snoozeTimeFormatter.string(from: until))"
+    }
+
+    private static let snoozeTimeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .none
+        formatter.timeStyle = .short
+        return formatter
+    }()
 }
 
 struct SettingsView: View {

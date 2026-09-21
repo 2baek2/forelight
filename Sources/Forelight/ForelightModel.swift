@@ -50,6 +50,8 @@ final class ForelightModel: ObservableObject {
     @Published var effectiveIntensity: Double
     @Published var currentApplicationHasIntensityOverride: Bool
     @Published var appIntensityOverrides: [AppIntensityEntry]
+    @Published var isSnoozed: Bool
+    @Published var snoozeUntil: Date?
 
     init(
         isEnabled: Bool,
@@ -66,7 +68,9 @@ final class ForelightModel: ObservableObject {
         launchAtLogin: Bool,
         effectiveIntensity: Double,
         currentApplicationHasIntensityOverride: Bool,
-        appIntensityOverrides: [AppIntensityEntry]
+        appIntensityOverrides: [AppIntensityEntry],
+        isSnoozed: Bool,
+        snoozeUntil: Date?
     ) {
         self.isEnabled = isEnabled
         self.currentApplicationName = currentApplicationName
@@ -83,5 +87,7 @@ final class ForelightModel: ObservableObject {
         self.effectiveIntensity = effectiveIntensity
         self.currentApplicationHasIntensityOverride = currentApplicationHasIntensityOverride
         self.appIntensityOverrides = appIntensityOverrides
+        self.isSnoozed = isSnoozed
+        self.snoozeUntil = snoozeUntil
     }
 }

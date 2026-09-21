@@ -20,6 +20,8 @@ final class OverlayWindow: NSWindow {
         hasShadow = false
         ignoresMouseEvents = true
         level = .floating
+        // Keep the dim layer out of screen recordings and screen shares.
+        sharingType = .none
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
         contentView = overlayView
     }

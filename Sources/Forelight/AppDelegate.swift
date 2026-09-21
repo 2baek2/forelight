@@ -47,7 +47,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             launchAtLogin: SMAppService.mainApp.status == .enabled,
             effectiveIntensity: controller.displayedIntensity,
             currentApplicationHasIntensityOverride: false,
-            appIntensityOverrides: []
+            appIntensityOverrides: [],
+            isSnoozed: false,
+            snoozeUntil: nil
         )
         super.init()
     }
@@ -90,6 +92,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 onToggleExclusion: { [weak self] in self?.toggleCurrentApplicationExclusion() },
                 onToggleAppIntensityOverride: { [weak self] in self?.toggleCurrentApplicationIntensityOverride() },
                 onAppearanceModeChanged: { [weak self] mode in self?.setAppearanceMode(mode) },
+                onSnooze: { [weak self] minutes in self?.snooze(forMinutes: minutes) },
+                onCancelSnooze: { [weak self] in self?.cancelSnooze() },
                 onOpenSettings: { [weak self] in self?.presentSettings() },
                 onQuit: { NSApplication.shared.terminate(nil) }
             )
@@ -203,6 +207,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         menu.addItem(toggleItem)
         menu.addItem(.separator())
 
+        let snoozeItem = NSMenuItem(title: "Snooze", action: nil, keyEquivalent: "")
+        let snoozeMenu = NSMenu()
+        for (title, minutes) in [("15 minutes", 15), ("30 minutes", 30), ("1 hour", 60)] {
+            let item = NSMenuItem(title: title, action: #selector(snoozeFromMenu(_:)), keyEquivalent: "")
+            item.target = self
+            item.tag = minutes
+            snoozeMenu.addItem(item)
+        }
+        snoozeMenu.addItem(.separator())
+        let resumeItem = NSMenuItem(title: "Resume now", action: #selector(cancelSnoozeFromMenu), keyEquivalent: "")
+        resumeItem.target = self
+        resumeItem.isEnabled = overlayController.isSnoozed
+        snoozeMenu.addItem(resumeItem)
+        snoozeItem.submenu = snoozeMenu
+        menu.addItem(snoozeItem)
+        menu.addItem(.separator())
+
         let appearanceItem = NSMenuItem(title: "Appearance", action: nil, keyEquivalent: "")
         let appearanceMenu = NSMenu()
         for mode in AppearanceMode.allCases {
@@ -258,6 +279,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         setAppearanceMode(mode)
     }
 
+    @objc private func snoozeFromMenu(_ sender: NSMenuItem) {
+        snooze(forMinutes: sender.tag)
+    }
+
+    @objc private func cancelSnoozeFromMenu() {
+        cancelSnooze()
+    }
+
     @objc private func quitFromMenu() {
         NSApp.terminate(nil)
     }
@@ -289,6 +318,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         model.appearanceMode = appearanceMode
         model.shortcut = shortcut
         model.launchAtLogin = SMAppService.mainApp.status == .enabled
+        model.isSnoozed = overlayController.isSnoozed
+        model.snoozeUntil = overlayController.snoozeUntilDate
         model.effectiveIntensity = overlayController.displayedIntensity
         model.currentApplicationHasIntensityOverride = overlayController.currentApplicationHasIntensityOverride
         model.appIntensityOverrides = overlayController.appIntensityStates
@@ -332,6 +363,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         enabled = value
         UserDefaults.standard.set(value, forKey: ForelightSettings.enabledKey)
         overlayController.setEnabled(value)
+        refreshUI()
+    }
+
+    private func snooze(forMinutes minutes: Int) {
+        overlayController.snooze(until: Date().addingTimeInterval(TimeInterval(minutes) * 60))
+        refreshUI()
+    }
+
+    private func cancelSnooze() {
+        overlayController.cancelSnooze()
         refreshUI()
     }
 

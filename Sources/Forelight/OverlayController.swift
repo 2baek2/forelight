@@ -58,6 +58,7 @@ final class OverlayController {
     private var dragEndFailsafe: DispatchWorkItem?
     private var dragRestoreWorkItem: DispatchWorkItem?
     private var isMissionControlActive = false
+    private var snoozeUntil: Date?
     private let ownPID = ProcessInfo.processInfo.processIdentifier
 
     init() {
@@ -208,6 +209,20 @@ final class OverlayController {
         intensity = ForelightSettings.clampedIntensity(value)
     }
 
+    var isSnoozed: Bool { snoozeUntil != nil }
+
+    var snoozeUntilDate: Date? { snoozeUntil }
+
+    func snooze(until date: Date) {
+        snoozeUntil = date
+        overlays.forEach { $0.hideImmediately() }
+    }
+
+    func cancelSnooze() {
+        snoozeUntil = nil
+        refresh()
+    }
+
     /// Edits whatever intensity is in effect for the frontmost app: its enabled
     /// override when present, otherwise the global value.
     func setDisplayedIntensity(_ value: Double) {
@@ -316,6 +331,14 @@ final class OverlayController {
 
     private func refresh() {
         guard isEnabled else { return }
+
+        if let until = snoozeUntil, Date() >= until {
+            snoozeUntil = nil
+        }
+        if snoozeUntil != nil {
+            overlays.forEach { $0.hideImmediately() }
+            return
+        }
 
         if MissionControlDetector.isActive() {
             if !isMissionControlActive {
