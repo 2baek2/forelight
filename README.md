@@ -11,6 +11,9 @@ Forelight is a small macOS menu bar utility that keeps the frontmost window clea
 - Optional hide-while-moving behavior with fade and restore timing controls
 - Per-app exceptions, persisted by Bundle ID, managed as a toggle list
 - Per-app dim intensity overrides (set from the panel or Settings → Apps), each with a toggle that keeps the entry but falls back to the global value
+- Focus Groups: save the current intensity, exceptions, and per-app intensities and switch between them from Settings, the status menu, or `forelight-cli group <name>`
+- Timed snooze and a capture-safe overlay that stays out of screen recordings
+- `forelight://` URL scheme (toggle, snooze, intensity, appearance, group) and a `forelight-cli` helper
 - Dark, light, or system appearance
 - Optional launch at login
 - Steps aside while Mission Control, App Exposé, Launchpad, or Show Desktop is open
@@ -29,6 +32,17 @@ To build and launch the app with a stable signing identity, use:
 ./scripts/build-app.sh
 ```
 
+Drive Forelight from scripts, Shortcuts, or the terminal:
+
+```sh
+swift run forelight-cli toggle
+swift run forelight-cli snooze 30
+swift run forelight-cli group Coding
+open "forelight://toggle"
+```
+
+The URL scheme supports `toggle`, `enable`, `disable`, `snooze?minutes=`, `resume`, `intensity?value=`, `appearance?mode=`, and `group?name=`.
+
 macOS Accessibility permission is associated with the app's Bundle ID and code-signing identity, not just the app name. The build script keeps the Bundle ID as `com.forelight.app` and signs with the installed `Local Self-Signed` identity by default, so replacing the app on this Mac keeps the same identity. If you use an Apple Developer signing identity, pass it explicitly:
 
 ```sh
@@ -43,4 +57,4 @@ Click the menu bar icon to open the compact control panel. It shows the current 
 
 Open `Settings…` for the Vorssaint-style sidebar settings window. It contains focus behavior, window-movement animation timing, app exceptions, and Accessibility permission status. Under `General`, click the shortcut field and press a new key combination to change the global toggle shortcut; the default is `⌥⌘F`. Under `Exceptions`, the excluded apps are listed with a toggle each; use `+` to add apps and `−` to remove the selected one. Toggling an app off keeps it in the list without excluding it.
 
-The current prototype uses public AppKit, Application Services, NSWorkspace, and CoreGraphics APIs. App exclusions, Focus Groups, and Rules come after the overlay behavior is verified.
+The app uses public AppKit, Application Services, NSWorkspace, and CoreGraphics APIs. Focus Groups are stored locally; deeper automation rules are the next step.

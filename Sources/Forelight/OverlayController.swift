@@ -12,6 +12,7 @@ enum ForelightSettings {
     static let shortcutKey = "globalShortcut"
     static let appIntensitiesKey = "appIntensities"
     static let appIntensityEnabledKey = "appIntensityEnabled"
+    static let focusGroupsKey = "focusGroups"
     static let intensityRange: ClosedRange<Double> = 0.10...0.90
 
     static func clampedIntensity(_ value: Double) -> Double {
@@ -42,6 +43,8 @@ final class OverlayController {
     private var exceptions: [String: Bool]
     private var appIntensities: [String: Double]
     private var appIntensityEnabled: [String: Bool]
+    private var focusGroupsStorage: [FocusGroup]
+    private(set) var activeGroupName: String?
     private var currentApplication: NSRunningApplication?
     private var isDraggingWindow = false
     private var mouseButtonDown = false
@@ -77,6 +80,12 @@ final class OverlayController {
             appIntensityEnabled = raw
         } else {
             appIntensityEnabled = [:]
+        }
+        if let data = UserDefaults.standard.data(forKey: ForelightSettings.focusGroupsKey),
+           let groups = try? JSONDecoder().decode([FocusGroup].self, from: data) {
+            focusGroupsStorage = groups
+        } else {
+            focusGroupsStorage = []
         }
         let savedIntensity = UserDefaults.standard.double(forKey: ForelightSettings.intensityKey)
         intensity = savedIntensity > 0 ? savedIntensity : 0.45
@@ -207,6 +216,7 @@ final class OverlayController {
 
     func setIntensity(_ value: Double) {
         intensity = ForelightSettings.clampedIntensity(value)
+        activeGroupName = nil
     }
 
     var isSnoozed: Bool { snoozeUntil != nil }
@@ -221,6 +231,52 @@ final class OverlayController {
     func cancelSnooze() {
         snoozeUntil = nil
         refresh()
+    }
+
+    var focusGroups: [FocusGroup] { focusGroupsStorage }
+
+    func saveCurrentAsGroup(named name: String) {
+        let group = FocusGroup(
+            name: name,
+            intensity: intensity,
+            exceptions: exceptions,
+            appIntensities: appIntensities,
+            appIntensityEnabled: appIntensityEnabled
+        )
+        if let index = focusGroupsStorage.firstIndex(where: { $0.name == name }) {
+            focusGroupsStorage[index] = group
+        } else {
+            focusGroupsStorage.append(group)
+        }
+        focusGroupsStorage.sort { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        persistFocusGroups()
+        activeGroupName = name
+    }
+
+    func applyGroup(named name: String) {
+        guard let group = focusGroupsStorage.first(where: { $0.name == name }) else { return }
+        intensity = ForelightSettings.clampedIntensity(group.intensity)
+        exceptions = group.exceptions
+        appIntensities = group.appIntensities
+        appIntensityEnabled = group.appIntensityEnabled
+        persistExceptions()
+        persistAppIntensities()
+        activeGroupName = name
+        refresh()
+    }
+
+    func deleteGroup(named name: String) {
+        focusGroupsStorage.removeAll { $0.name == name }
+        if activeGroupName == name {
+            activeGroupName = nil
+        }
+        persistFocusGroups()
+    }
+
+    private func persistFocusGroups() {
+        if let data = try? JSONEncoder().encode(focusGroupsStorage) {
+            UserDefaults.standard.set(data, forKey: ForelightSettings.focusGroupsKey)
+        }
     }
 
     /// Edits whatever intensity is in effect for the frontmost app: its enabled
@@ -260,6 +316,7 @@ final class OverlayController {
     private func persistAppIntensities() {
         UserDefaults.standard.set(appIntensities, forKey: ForelightSettings.appIntensitiesKey)
         UserDefaults.standard.set(appIntensityEnabled, forKey: ForelightSettings.appIntensityEnabledKey)
+        activeGroupName = nil
     }
 
     func setHideWhileMoving(_ value: Bool) {
@@ -321,6 +378,7 @@ final class OverlayController {
 
     private func persistExceptions() {
         UserDefaults.standard.set(exceptions, forKey: Self.excludedBundleIDsKey)
+        activeGroupName = nil
     }
 
     func rebuildOverlays() {

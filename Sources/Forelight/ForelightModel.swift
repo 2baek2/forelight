@@ -52,6 +52,8 @@ final class ForelightModel: ObservableObject {
     @Published var appIntensityOverrides: [AppIntensityEntry]
     @Published var isSnoozed: Bool
     @Published var snoozeUntil: Date?
+    @Published var focusGroups: [FocusGroup]
+    @Published var activeGroupName: String?
 
     init(
         isEnabled: Bool,
@@ -70,7 +72,9 @@ final class ForelightModel: ObservableObject {
         currentApplicationHasIntensityOverride: Bool,
         appIntensityOverrides: [AppIntensityEntry],
         isSnoozed: Bool,
-        snoozeUntil: Date?
+        snoozeUntil: Date?,
+        focusGroups: [FocusGroup],
+        activeGroupName: String?
     ) {
         self.isEnabled = isEnabled
         self.currentApplicationName = currentApplicationName
@@ -89,5 +93,7 @@ final class ForelightModel: ObservableObject {
         self.appIntensityOverrides = appIntensityOverrides
         self.isSnoozed = isSnoozed
         self.snoozeUntil = snoozeUntil
+        self.focusGroups = focusGroups
+        self.activeGroupName = activeGroupName
     }
 }

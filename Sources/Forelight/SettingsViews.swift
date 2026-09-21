@@ -184,6 +184,7 @@ struct SettingsView: View {
         case focus = "Focus"
         case exceptions = "Exceptions"
         case apps = "Apps"
+        case groups = "Groups"
         case advanced = "Advanced"
 
         var id: String { rawValue }
@@ -194,6 +195,7 @@ struct SettingsView: View {
             case .focus: return "viewfinder"
             case .exceptions: return "eye.slash"
             case .apps: return "square.grid.2x2"
+            case .groups: return "square.stack.3d.up"
             case .advanced: return "gearshape"
             }
         }
@@ -204,6 +206,7 @@ struct SettingsView: View {
             case .focus: return "Control how much the background is dimmed and how window movement is handled."
             case .exceptions: return "Apps that stay clear while everything else is dimmed."
             case .apps: return "Give individual apps their own dim intensity."
+            case .groups: return "Save the current setup as a group and switch between them."
             case .advanced: return "Permissions and deeper behavior."
             }
         }
@@ -226,11 +229,15 @@ struct SettingsView: View {
     let onSetAppIntensityEnabled: (String, Bool) -> Void
     let onRemoveAppIntensity: (String) -> Void
     let onAddAppIntensity: () -> Void
+    let onApplyGroup: (String) -> Void
+    let onSaveGroup: () -> Void
+    let onDeleteGroup: (String) -> Void
     let onOpenAccessibilitySettings: () -> Void
 
     @State private var selectedSection: Section = .general
     @State private var selectedExceptionID: String?
     @State private var selectedAppIntensityID: String?
+    @State private var selectedGroupName: String?
 
     var body: some View {
         HStack(spacing: 0) {
@@ -514,6 +521,60 @@ struct SettingsView: View {
                     }
                     .disabled(selectedAppIntensityID == nil)
                     .help("Remove the selected application")
+
+                    Spacer()
+                }
+                .buttonStyle(.borderless)
+                .controlSize(.small)
+            }
+        case .groups:
+            VStack(alignment: .leading, spacing: 12) {
+                List(selection: $selectedGroupName) {
+                    ForEach(model.focusGroups) { group in
+                        HStack(spacing: 10) {
+                            Image(systemName: model.activeGroupName == group.name ? "checkmark.circle.fill" : "square.stack.3d.up")
+                                .foregroundStyle(model.activeGroupName == group.name ? ForelightStyle.green : ForelightStyle.muted2)
+                                .frame(width: 20)
+                            Text(group.name)
+                            Spacer()
+                            Button("Apply") { onApplyGroup(group.name) }
+                                .buttonStyle(.bordered)
+                                .controlSize(.small)
+                        }
+                        .padding(.vertical, 2)
+                        .tag(group.name)
+                    }
+                }
+                .scrollContentBackground(.hidden)
+                .background(ForelightStyle.cardBackground)
+                .frame(minHeight: 320)
+                .clipShape(RoundedRectangle(cornerRadius: ForelightStyle.cardCorner, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: ForelightStyle.cardCorner, style: .continuous)
+                        .strokeBorder(ForelightStyle.cardBorder, lineWidth: 1)
+                )
+                .overlay {
+                    if model.focusGroups.isEmpty {
+                        Text("No groups yet. Use + to save the current setup.")
+                            .foregroundStyle(ForelightStyle.muted)
+                    }
+                }
+
+                HStack(spacing: 6) {
+                    Button(action: onSaveGroup) {
+                        Image(systemName: "plus")
+                    }
+                    .help("Save the current setup as a group")
+
+                    Button {
+                        guard let selectedGroupName else { return }
+                        onDeleteGroup(selectedGroupName)
+                        self.selectedGroupName = nil
+                    } label: {
+                        Image(systemName: "minus")
+                    }
+                    .disabled(selectedGroupName == nil)
+                    .help("Remove the selected group")
 
                     Spacer()
                 }

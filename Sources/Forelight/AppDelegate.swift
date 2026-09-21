@@ -50,7 +50,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             currentApplicationHasIntensityOverride: false,
             appIntensityOverrides: [],
             isSnoozed: false,
-            snoozeUntil: nil
+            snoozeUntil: nil,
+            focusGroups: [],
+            activeGroupName: nil
         )
         super.init()
     }
@@ -225,6 +227,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             if let raw = query["mode"], let mode = AppearanceMode(rawValue: raw.lowercased()) {
                 setAppearanceMode(mode)
             }
+        case "group":
+            if let name = query["name"] {
+                applyGroup(named: name)
+            }
         default:
             break
         }
@@ -297,6 +303,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         menu.addItem(appearanceItem)
         menu.addItem(.separator())
 
+        let groupsItem = NSMenuItem(title: "Focus Groups", action: nil, keyEquivalent: "")
+        let groupsMenu = NSMenu()
+        for group in overlayController.focusGroups {
+            let item = NSMenuItem(title: group.name, action: #selector(applyGroupFromMenu(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = group.name
+            item.state = overlayController.activeGroupName == group.name ? .on : .off
+            groupsMenu.addItem(item)
+        }
+        if !overlayController.focusGroups.isEmpty {
+            groupsMenu.addItem(.separator())
+        }
+        let saveGroupItem = NSMenuItem(title: "Save Current…", action: #selector(saveGroupFromMenu), keyEquivalent: "")
+        saveGroupItem.target = self
+        groupsMenu.addItem(saveGroupItem)
+        groupsItem.submenu = groupsMenu
+        menu.addItem(groupsItem)
+        menu.addItem(.separator())
+
         let settingsItem = NSMenuItem(
             title: "Settings…",
             action: #selector(openSettingsFromMenu),
@@ -343,6 +368,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         cancelSnooze()
     }
 
+    @objc private func applyGroupFromMenu(_ sender: NSMenuItem) {
+        guard let name = sender.representedObject as? String else { return }
+        applyGroup(named: name)
+    }
+
+    @objc private func saveGroupFromMenu() {
+        saveCurrentAsGroup()
+    }
+
     @objc private func quitFromMenu() {
         NSApp.terminate(nil)
     }
@@ -376,6 +410,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         model.launchAtLogin = SMAppService.mainApp.status == .enabled
         model.isSnoozed = overlayController.isSnoozed
         model.snoozeUntil = overlayController.snoozeUntilDate
+        model.focusGroups = overlayController.focusGroups
+        model.activeGroupName = overlayController.activeGroupName
         model.effectiveIntensity = overlayController.displayedIntensity
         model.currentApplicationHasIntensityOverride = overlayController.currentApplicationHasIntensityOverride
         model.appIntensityOverrides = overlayController.appIntensityStates
@@ -430,6 +466,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private func cancelSnooze() {
         overlayController.cancelSnooze()
         refreshUI()
+    }
+
+    private func applyGroup(named name: String) {
+        overlayController.applyGroup(named: name)
+        refreshUI()
+    }
+
+    private func saveCurrentAsGroup() {
+        guard let name = promptForGroupName() else { return }
+        overlayController.saveCurrentAsGroup(named: name)
+        refreshUI()
+    }
+
+    private func deleteGroup(named name: String) {
+        overlayController.deleteGroup(named: name)
+        refreshUI()
+    }
+
+    private func promptForGroupName() -> String? {
+        let alert = NSAlert()
+        alert.messageText = "Save Focus Group"
+        alert.informativeText = "Stores the current intensity, exceptions, and per-app intensities."
+        alert.addButton(withTitle: "Save")
+        alert.addButton(withTitle: "Cancel")
+
+        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 240, height: 24))
+        field.placeholderString = "Group name"
+        alert.accessoryView = field
+        alert.window.initialFirstResponder = field
+
+        guard alert.runModal() == .alertFirstButtonReturn else { return nil }
+        let name = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        return name.isEmpty ? nil : name
     }
 
     private func setIntensity(_ value: Double) {
@@ -601,6 +670,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                     onSetAppIntensityEnabled: { [weak self] bundleID, enabled in self?.setAppIntensityEnabled(bundleID: bundleID, enabled: enabled) },
                     onRemoveAppIntensity: { [weak self] bundleID in self?.removeAppIntensity(bundleID: bundleID) },
                     onAddAppIntensity: { [weak self] in self?.addAppIntensityFromPanel() },
+                    onApplyGroup: { [weak self] name in self?.applyGroup(named: name) },
+                    onSaveGroup: { [weak self] in self?.saveCurrentAsGroup() },
+                    onDeleteGroup: { [weak self] name in self?.deleteGroup(named: name) },
                     onOpenAccessibilitySettings: { [weak self] in self?.overlayController.openAccessibilitySettings() }
                 )
             )
