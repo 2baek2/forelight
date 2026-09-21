@@ -176,35 +176,35 @@ struct SettingsView: View {
                     .font(.callout)
                     .foregroundStyle(.secondary)
 
-                if model.exceptions.isEmpty {
-                    Text("No apps are excluded yet. Use + to add one.")
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, minHeight: 220)
-                } else {
-                    List(selection: $selectedExceptionID) {
-                        ForEach(model.exceptions) { entry in
-                            HStack(spacing: 10) {
-                                if let icon = entry.icon {
-                                    Image(nsImage: icon)
-                                        .resizable()
-                                        .frame(width: 20, height: 20)
-                                } else {
-                                    Image(systemName: "app.dashed")
-                                        .frame(width: 20, height: 20)
-                                        .foregroundStyle(.secondary)
-                                }
-                                Text(entry.name)
-                                Spacer()
-                                Toggle("", isOn: Binding(
-                                    get: { entry.isEnabled },
-                                    set: { value in onSetException(entry.bundleID, value) }
-                                ))
-                                    .labelsHidden()
+                List(selection: $selectedExceptionID) {
+                    ForEach(model.exceptions) { entry in
+                        HStack(spacing: 10) {
+                            if let icon = entry.icon {
+                                Image(nsImage: icon)
+                                    .resizable()
+                                    .frame(width: 20, height: 20)
+                            } else {
+                                Image(systemName: "app.dashed")
+                                    .frame(width: 20, height: 20)
+                                    .foregroundStyle(.secondary)
                             }
-                            .tag(entry.bundleID)
+                            Text(entry.name)
+                            Spacer()
+                            Toggle("", isOn: Binding(
+                                get: { entry.isEnabled },
+                                set: { value in onSetException(entry.bundleID, value) }
+                            ))
+                                .labelsHidden()
                         }
+                        .tag(entry.bundleID)
                     }
-                    .frame(minHeight: 220)
+                }
+                .frame(minHeight: 220)
+                .overlay {
+                    if model.exceptions.isEmpty {
+                        Text("No apps are excluded yet. Use + to add one.")
+                            .foregroundStyle(.secondary)
+                    }
                 }
 
                 HStack(spacing: 6) {
