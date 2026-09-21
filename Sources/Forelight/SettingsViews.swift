@@ -213,6 +213,14 @@ struct SettingsView: View {
             case .advanced: return "Permissions and deeper behavior."
             }
         }
+
+        /// List based sections fill the window; form sections scroll instead.
+        var usesFillingList: Bool {
+            switch self {
+            case .exceptions, .apps, .displays, .groups: return true
+            case .general, .focus, .advanced: return false
+            }
+        }
     }
 
     @ObservedObject var model: ForelightModel
@@ -273,20 +281,33 @@ struct SettingsView: View {
 
             Divider()
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    VStack(alignment: .leading, spacing: 5) {
-                        Text(selectedSection.rawValue)
-                            .font(.title2.weight(.semibold))
-                        Text(selectedSection.subtitle)
-                            .font(.callout)
-                            .foregroundStyle(ForelightStyle.muted)
-                    }
-                    detailView
+            VStack(alignment: .leading, spacing: 0) {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(selectedSection.rawValue)
+                        .font(.title2.weight(.semibold))
+                    Text(selectedSection.subtitle)
+                        .font(.callout)
+                        .foregroundStyle(ForelightStyle.muted)
                 }
-                .padding(28)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 28)
+                .padding(.top, 28)
+                .padding(.bottom, 18)
+
+                if selectedSection.usesFillingList {
+                    detailView
+                        .padding(.horizontal, 28)
+                        .padding(.bottom, 28)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                } else {
+                    ScrollView {
+                        detailView
+                            .padding(.horizontal, 28)
+                            .padding(.bottom, 28)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .frame(minWidth: 700, minHeight: 600)
         .tint(ForelightStyle.accent)
@@ -515,7 +536,7 @@ struct SettingsView: View {
                 }
                 .scrollContentBackground(.hidden)
                 .background(ForelightStyle.cardBackground)
-                .frame(minHeight: 440)
+                .frame(minHeight: 240, maxHeight: .infinity)
                 .clipShape(RoundedRectangle(cornerRadius: ForelightStyle.cardCorner, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: ForelightStyle.cardCorner, style: .continuous)
@@ -596,7 +617,7 @@ struct SettingsView: View {
                 }
                 .scrollContentBackground(.hidden)
                 .background(ForelightStyle.cardBackground)
-                .frame(minHeight: 440)
+                .frame(minHeight: 240, maxHeight: .infinity)
                 .clipShape(RoundedRectangle(cornerRadius: ForelightStyle.cardCorner, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: ForelightStyle.cardCorner, style: .continuous)
@@ -676,7 +697,7 @@ struct SettingsView: View {
                 }
                 .scrollContentBackground(.hidden)
                 .background(ForelightStyle.cardBackground)
-                .frame(minHeight: 440)
+                .frame(minHeight: 240, maxHeight: .infinity)
                 .clipShape(RoundedRectangle(cornerRadius: ForelightStyle.cardCorner, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: ForelightStyle.cardCorner, style: .continuous)
@@ -747,7 +768,7 @@ struct SettingsView: View {
                 }
                 .scrollContentBackground(.hidden)
                 .background(ForelightStyle.cardBackground)
-                .frame(minHeight: 440)
+                .frame(minHeight: 240, maxHeight: .infinity)
                 .clipShape(RoundedRectangle(cornerRadius: ForelightStyle.cardCorner, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: ForelightStyle.cardCorner, style: .continuous)
