@@ -64,17 +64,18 @@ struct MenuPanelView: View {
         }
         .padding(14)
         .frame(width: 330)
+        .tint(ForelightStyle.accent)
     }
 
     private var header: some View {
         HStack(spacing: 10) {
             ZStack {
                 RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .fill(Color.accentColor.opacity(0.15))
+                    .fill(ForelightStyle.accentSoft)
                     .frame(width: 34, height: 34)
                 Image(systemName: "viewfinder")
                     .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(ForelightStyle.accent)
             }
 
             VStack(alignment: .leading, spacing: 3) {
@@ -82,7 +83,7 @@ struct MenuPanelView: View {
                     .font(.headline)
                 StatusPill(
                     text: model.isEnabled ? "Focus mode on" : "Focus mode paused",
-                    color: model.isEnabled ? .green : .secondary
+                    color: model.isEnabled ? ForelightStyle.green : .secondary
                 )
             }
 
@@ -145,10 +146,12 @@ struct SettingsView: View {
         HStack(spacing: 0) {
             List(Section.allCases, selection: $selectedSection) { section in
                 Label(section.rawValue, systemImage: section.icon)
+                    .padding(.vertical, 4)
                     .tag(section)
             }
             .listStyle(.sidebar)
-            .frame(width: 190)
+            .environment(\.defaultMinListRowHeight, 38)
+            .frame(width: 200)
 
             Divider()
 
@@ -167,7 +170,8 @@ struct SettingsView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        .frame(minWidth: 700, minHeight: 460)
+        .frame(minWidth: 700, minHeight: 560)
+        .tint(ForelightStyle.accent)
     }
 
     @ViewBuilder
@@ -269,7 +273,14 @@ struct SettingsView: View {
                         .tag(entry.bundleID)
                     }
                 }
-                .frame(minHeight: 240)
+                .scrollContentBackground(.hidden)
+                .background(ForelightStyle.cardBackground)
+                .frame(minHeight: 320)
+                .clipShape(RoundedRectangle(cornerRadius: ForelightStyle.cardCorner, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: ForelightStyle.cardCorner, style: .continuous)
+                        .strokeBorder(ForelightStyle.cardBorder, lineWidth: 1)
+                )
                 .overlay {
                     if model.exceptions.isEmpty {
                         Text("No apps are excluded yet. Use + to add one.")
@@ -303,7 +314,7 @@ struct SettingsView: View {
                 Card {
                     HStack(spacing: 10) {
                         Image(systemName: model.accessibilityTrusted ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
-                            .foregroundStyle(model.accessibilityTrusted ? .green : .orange)
+                            .foregroundStyle(model.accessibilityTrusted ? ForelightStyle.green : ForelightStyle.orange)
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Accessibility")
                             Text(model.accessibilityTrusted ? "Permission granted" : "Required for precise window tracking")

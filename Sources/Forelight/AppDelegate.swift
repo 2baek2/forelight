@@ -264,13 +264,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private func presentSettings(center: Bool = true) {
         if settingsWindow == nil {
             let window = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 760, height: 520),
+                contentRect: NSRect(x: 0, y: 0, width: 780, height: 640),
                 styleMask: [.titled, .closable, .miniaturizable, .resizable],
                 backing: .buffered,
                 defer: false
             )
             window.title = "Forelight Settings"
-            window.minSize = NSSize(width: 700, height: 460)
+            window.minSize = NSSize(width: 700, height: 560)
+            window.backgroundColor = ForelightStyle.windowNSColor
             window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
             window.isReleasedWhenClosed = false
             window.delegate = self

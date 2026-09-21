@@ -3,6 +3,55 @@ import SwiftUI
 
 enum ForelightStyle {
     static let cardCorner: CGFloat = 10
+
+    // Vorssaint-inspired palette: periwinkle accent on a deep charcoal surface.
+    static let accent = Color(hex: 0x8A8CFF)
+    static let accentSoft = accent.opacity(0.16)
+    static let green = Color(hex: 0x46D07F)
+    static let orange = Color(hex: 0xF5A623)
+    static let pink = Color(hex: 0xFF7AB2)
+
+    static var windowNSColor: NSColor {
+        dynamicNSColor(dark: 0x121218, light: 0xEFEFF6)
+    }
+
+    static var cardBackground: Color {
+        Color(nsColor: dynamicNSColor(dark: 0x1B1B24, light: 0xFFFFFF))
+    }
+
+    static var cardBorder: Color {
+        accent.opacity(0.12)
+    }
+
+    private static func dynamicNSColor(dark: UInt32, light: UInt32) -> NSColor {
+        NSColor(name: nil) { appearance in
+            let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            return NSColor(hex: isDark ? dark : light)
+        }
+    }
+}
+
+extension Color {
+    init(hex: UInt32) {
+        self.init(
+            .sRGB,
+            red: Double((hex >> 16) & 0xFF) / 255,
+            green: Double((hex >> 8) & 0xFF) / 255,
+            blue: Double(hex & 0xFF) / 255,
+            opacity: 1
+        )
+    }
+}
+
+extension NSColor {
+    convenience init(hex: UInt32) {
+        self.init(
+            srgbRed: CGFloat((hex >> 16) & 0xFF) / 255,
+            green: CGFloat((hex >> 8) & 0xFF) / 255,
+            blue: CGFloat(hex & 0xFF) / 255,
+            alpha: 1
+        )
+    }
 }
 
 struct Card<Content: View>: View {
@@ -18,11 +67,11 @@ struct Card<Content: View>: View {
         }
         .background(
             RoundedRectangle(cornerRadius: ForelightStyle.cardCorner, style: .continuous)
-                .fill(Color(nsColor: .controlBackgroundColor))
+                .fill(ForelightStyle.cardBackground)
         )
         .overlay(
             RoundedRectangle(cornerRadius: ForelightStyle.cardCorner, style: .continuous)
-                .strokeBorder(Color.primary.opacity(0.07), lineWidth: 1)
+                .strokeBorder(ForelightStyle.cardBorder, lineWidth: 1)
         )
     }
 }
