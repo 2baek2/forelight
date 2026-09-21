@@ -28,4 +28,37 @@ struct IntensitySettingsTests {
         #expect(ForelightSettings.effectiveIntensity(global: 0.5, override: nil, isEnabled: true) == 0.5)
         #expect(ForelightSettings.effectiveIntensity(global: 0.5, override: nil, isEnabled: false) == 0.5)
     }
+
+    @Test func displayOverrideWinsOverApp() {
+        let resolved = ForelightSettings.resolvedIntensity(
+            global: 0.5,
+            appOverride: 0.2,
+            appEnabled: true,
+            displayOverride: 0.8,
+            displayEnabled: true
+        )
+        #expect(resolved == 0.8)
+    }
+
+    @Test func disabledDisplayFallsBackToApp() {
+        let resolved = ForelightSettings.resolvedIntensity(
+            global: 0.5,
+            appOverride: 0.2,
+            appEnabled: true,
+            displayOverride: 0.8,
+            displayEnabled: false
+        )
+        #expect(resolved == 0.2)
+    }
+
+    @Test func noOverridesUseGlobal() {
+        let resolved = ForelightSettings.resolvedIntensity(
+            global: 0.5,
+            appOverride: nil,
+            appEnabled: false,
+            displayOverride: nil,
+            displayEnabled: false
+        )
+        #expect(resolved == 0.5)
+    }
 }

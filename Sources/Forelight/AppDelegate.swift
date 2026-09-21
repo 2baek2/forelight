@@ -54,7 +54,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             isSnoozed: false,
             snoozeUntil: nil,
             focusGroups: [],
-            activeGroupName: nil
+            activeGroupName: nil,
+            displays: []
         )
         super.init()
     }
@@ -432,6 +433,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         model.snoozeUntil = overlayController.snoozeUntilDate
         model.focusGroups = overlayController.focusGroups
         model.activeGroupName = overlayController.activeGroupName
+        model.displays = NSScreen.screens.compactMap { screen in
+            guard let info = DisplayIdentifier.info(for: screen) else { return nil }
+            return DisplayIntensityEntry(
+                id: info.id,
+                name: info.name,
+                value: overlayController.displayIntensityValue(for: info.id),
+                isEnabled: overlayController.isDisplayIntensityEnabled(info.id)
+            )
+        }
         model.effectiveIntensity = overlayController.displayedIntensity
         model.currentApplicationHasIntensityOverride = overlayController.currentApplicationHasIntensityOverride
         model.appIntensityOverrides = overlayController.appIntensityStates
@@ -725,6 +735,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         refreshUI()
     }
 
+    private func setDisplayIntensity(displayID: String, value: Double) {
+        overlayController.setDisplayIntensity(displayID: displayID, value: value)
+        syncModel()
+    }
+
+    private func setDisplayIntensityEnabled(displayID: String, enabled: Bool) {
+        overlayController.setDisplayIntensityEnabled(displayID: displayID, enabled: enabled)
+        refreshUI()
+    }
+
+    private func removeDisplayIntensity(displayID: String) {
+        overlayController.removeDisplayIntensity(displayID: displayID)
+        refreshUI()
+    }
+
     private func setHideWhileMoving(_ value: Bool) {
         overlayController.setHideWhileMoving(value)
         syncModel()
@@ -856,6 +881,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                     onSetAppIntensityEnabled: { [weak self] bundleID, enabled in self?.setAppIntensityEnabled(bundleID: bundleID, enabled: enabled) },
                     onRemoveAppIntensity: { [weak self] bundleID in self?.removeAppIntensity(bundleID: bundleID) },
                     onAddAppIntensity: { [weak self] in self?.addAppIntensityFromPanel() },
+                    onSetDisplayIntensity: { [weak self] displayID, value in self?.setDisplayIntensity(displayID: displayID, value: value) },
+                    onSetDisplayIntensityEnabled: { [weak self] displayID, enabled in self?.setDisplayIntensityEnabled(displayID: displayID, enabled: enabled) },
+                    onRemoveDisplayIntensity: { [weak self] displayID in self?.removeDisplayIntensity(displayID: displayID) },
                     onApplyGroup: { [weak self] name in self?.applyGroup(named: name) },
                     onSaveGroup: { [weak self] in self?.saveCurrentAsGroup() },
                     onDeleteGroup: { [weak self] name in self?.deleteGroup(named: name) },

@@ -20,6 +20,13 @@ struct AppIntensityEntry: Identifiable {
     var id: String { bundleID }
 }
 
+struct DisplayIntensityEntry: Identifiable {
+    let id: String
+    let name: String
+    var value: Double
+    var isEnabled: Bool
+}
+
 enum AppInfoResolver {
     static func resolve(bundleID: String) -> (name: String, icon: NSImage?) {
         guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else {
@@ -54,6 +61,7 @@ final class ForelightModel: ObservableObject {
     @Published var snoozeUntil: Date?
     @Published var focusGroups: [FocusGroup]
     @Published var activeGroupName: String?
+    @Published var displays: [DisplayIntensityEntry]
 
     init(
         isEnabled: Bool,
@@ -74,7 +82,8 @@ final class ForelightModel: ObservableObject {
         isSnoozed: Bool,
         snoozeUntil: Date?,
         focusGroups: [FocusGroup],
-        activeGroupName: String?
+        activeGroupName: String?,
+        displays: [DisplayIntensityEntry]
     ) {
         self.isEnabled = isEnabled
         self.currentApplicationName = currentApplicationName
@@ -95,5 +104,6 @@ final class ForelightModel: ObservableObject {
         self.snoozeUntil = snoozeUntil
         self.focusGroups = focusGroups
         self.activeGroupName = activeGroupName
+        self.displays = displays
     }
 }

@@ -184,6 +184,7 @@ struct SettingsView: View {
         case focus = "Focus"
         case exceptions = "Exceptions"
         case apps = "Apps"
+        case displays = "Displays"
         case groups = "Groups"
         case advanced = "Advanced"
 
@@ -195,6 +196,7 @@ struct SettingsView: View {
             case .focus: return "viewfinder"
             case .exceptions: return "eye.slash"
             case .apps: return "square.grid.2x2"
+            case .displays: return "display"
             case .groups: return "square.stack.3d.up"
             case .advanced: return "gearshape"
             }
@@ -206,6 +208,7 @@ struct SettingsView: View {
             case .focus: return "Control how much the background is dimmed and how window movement is handled."
             case .exceptions: return "Apps that stay clear while everything else is dimmed."
             case .apps: return "Give individual apps their own dim intensity."
+            case .displays: return "Give each screen its own dim intensity."
             case .groups: return "Save the current setup as a group and switch between them."
             case .advanced: return "Permissions and deeper behavior."
             }
@@ -229,6 +232,9 @@ struct SettingsView: View {
     let onSetAppIntensityEnabled: (String, Bool) -> Void
     let onRemoveAppIntensity: (String) -> Void
     let onAddAppIntensity: () -> Void
+    let onSetDisplayIntensity: (String, Double) -> Void
+    let onSetDisplayIntensityEnabled: (String, Bool) -> Void
+    let onRemoveDisplayIntensity: (String) -> Void
     let onApplyGroup: (String) -> Void
     let onSaveGroup: () -> Void
     let onDeleteGroup: (String) -> Void
@@ -242,6 +248,7 @@ struct SettingsView: View {
     @State private var selectedSection: Section = .general
     @State private var selectedExceptionID: String?
     @State private var selectedAppIntensityID: String?
+    @State private var selectedDisplayID: String?
     @State private var selectedGroupName: String?
 
     var body: some View {
@@ -528,6 +535,76 @@ struct SettingsView: View {
                     .help("Remove the selected application")
 
                     Spacer()
+                }
+                .buttonStyle(.borderless)
+                .controlSize(.small)
+            }
+        case .displays:
+            VStack(alignment: .leading, spacing: 12) {
+                List(selection: $selectedDisplayID) {
+                    ForEach(model.displays) { display in
+                        HStack(spacing: 10) {
+                            Image(systemName: "display")
+                                .foregroundStyle(ForelightStyle.muted2)
+                                .frame(width: 20)
+                            Text(display.name)
+                            Spacer()
+                            Toggle("", isOn: Binding(
+                                get: { display.isEnabled },
+                                set: { value in onSetDisplayIntensityEnabled(display.id, value) }
+                            ))
+                            .labelsHidden()
+                            .toggleStyle(.switch)
+                            .controlSize(.small)
+                            Slider(
+                                value: Binding(
+                                    get: { display.value },
+                                    set: { value in onSetDisplayIntensity(display.id, value) }
+                                ),
+                                in: ForelightSettings.intensityRange
+                            )
+                            .frame(width: 150)
+                            .disabled(!display.isEnabled)
+                            Text("\(Int((display.value * 100).rounded()))%")
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(ForelightStyle.muted)
+                                .frame(width: 42, alignment: .trailing)
+                        }
+                        .padding(.vertical, 2)
+                        .tag(display.id)
+                    }
+                }
+                .scrollContentBackground(.hidden)
+                .background(ForelightStyle.cardBackground)
+                .frame(minHeight: 320)
+                .clipShape(RoundedRectangle(cornerRadius: ForelightStyle.cardCorner, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: ForelightStyle.cardCorner, style: .continuous)
+                        .strokeBorder(ForelightStyle.cardBorder, lineWidth: 1)
+                )
+                .overlay {
+                    if model.displays.isEmpty {
+                        Text("No displays detected.")
+                            .foregroundStyle(ForelightStyle.muted)
+                    }
+                }
+
+                HStack(spacing: 6) {
+                    Button {
+                        guard let selectedDisplayID else { return }
+                        onRemoveDisplayIntensity(selectedDisplayID)
+                        self.selectedDisplayID = nil
+                    } label: {
+                        Image(systemName: "minus")
+                    }
+                    .disabled(selectedDisplayID == nil)
+                    .help("Clear the custom intensity for the selected display")
+
+                    Spacer()
+
+                    Text("A display override wins over an app override.")
+                        .font(.caption)
+                        .foregroundStyle(ForelightStyle.muted)
                 }
                 .buttonStyle(.borderless)
                 .controlSize(.small)

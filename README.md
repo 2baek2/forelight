@@ -11,6 +11,7 @@ Forelight is a small macOS menu bar utility that keeps the frontmost window clea
 - Optional hide-while-moving behavior with fade and restore timing controls
 - Per-app exceptions, persisted by Bundle ID, managed as a toggle list
 - Per-app dim intensity overrides (set from the panel or Settings → Apps), each with a toggle that keeps the entry but falls back to the global value
+- Per-display dim intensity overrides in Settings → Displays (a display override wins over an app override)
 - Focus Groups: save the current intensity, exceptions, and per-app intensities and switch between them from Settings, the status menu, or `forelight-cli group <name>`
 - Timed snooze and a capture-safe overlay that stays out of screen recordings
 - `forelight://` URL scheme (toggle, snooze, intensity, appearance, group) and a `forelight-cli` helper

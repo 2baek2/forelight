@@ -13,6 +13,8 @@ struct SettingsDocumentTests {
         document.exceptions = ["com.apple.Safari": true]
         document.appIntensities = ["com.apple.dt.Xcode": 0.3]
         document.appIntensityEnabled = ["com.apple.dt.Xcode": false]
+        document.displayIntensities = ["display-uuid": 0.8]
+        document.displayIntensityEnabled = ["display-uuid": true]
         document.focusGroups = [
             FocusGroup(name: "Coding", intensity: 0.4, exceptions: [:], appIntensities: [:], appIntensityEnabled: [:])
         ]

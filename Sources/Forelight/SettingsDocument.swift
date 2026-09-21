@@ -17,6 +17,8 @@ struct SettingsDocument: Codable, Equatable {
     var exceptions: [String: Bool]?
     var appIntensities: [String: Double]?
     var appIntensityEnabled: [String: Bool]?
+    var displayIntensities: [String: Double]?
+    var displayIntensityEnabled: [String: Bool]?
     var focusGroups: [FocusGroup]?
 
     init(version: Int = SettingsDocument.currentVersion) {
@@ -42,6 +44,10 @@ struct SettingsDocument: Codable, Equatable {
             document.appIntensities = raw.compactMapValues { ($0 as? NSNumber)?.doubleValue }
         }
         document.appIntensityEnabled = defaults.dictionary(forKey: ForelightSettings.appIntensityEnabledKey) as? [String: Bool]
+        if let raw = defaults.dictionary(forKey: ForelightSettings.displayIntensitiesKey) {
+            document.displayIntensities = raw.compactMapValues { ($0 as? NSNumber)?.doubleValue }
+        }
+        document.displayIntensityEnabled = defaults.dictionary(forKey: ForelightSettings.displayIntensityEnabledKey) as? [String: Bool]
         if let data = defaults.data(forKey: ForelightSettings.focusGroupsKey) {
             document.focusGroups = try? JSONDecoder().decode([FocusGroup].self, from: data)
         }
@@ -79,6 +85,12 @@ struct SettingsDocument: Codable, Equatable {
         }
         if let appIntensityEnabled {
             defaults.set(appIntensityEnabled, forKey: ForelightSettings.appIntensityEnabledKey)
+        }
+        if let displayIntensities {
+            defaults.set(displayIntensities, forKey: ForelightSettings.displayIntensitiesKey)
+        }
+        if let displayIntensityEnabled {
+            defaults.set(displayIntensityEnabled, forKey: ForelightSettings.displayIntensityEnabledKey)
         }
         if let focusGroups, let data = try? JSONEncoder().encode(focusGroups) {
             defaults.set(data, forKey: ForelightSettings.focusGroupsKey)
