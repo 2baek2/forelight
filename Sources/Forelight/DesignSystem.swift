@@ -228,6 +228,72 @@ struct SectionHeader: View {
     }
 }
 
+struct PercentageField: View {
+    let value: Double
+    let range: ClosedRange<Double>
+    let isDisabled: Bool
+    let onChanged: (Double) -> Void
+
+    @State private var text: String
+    @FocusState private var focused: Bool
+
+    init(
+        value: Double,
+        range: ClosedRange<Double>,
+        isDisabled: Bool = false,
+        onChanged: @escaping (Double) -> Void
+    ) {
+        self.value = value
+        self.range = range
+        self.isDisabled = isDisabled
+        self.onChanged = onChanged
+        _text = State(initialValue: Self.display(value))
+    }
+
+    var body: some View {
+        HStack(spacing: 3) {
+            TextField("", text: Binding(
+                get: { text },
+                set: { text = $0.filter(\.isNumber) }
+            ))
+            .textFieldStyle(.roundedBorder)
+            .multilineTextAlignment(.trailing)
+            .frame(width: 48)
+            .focused($focused)
+            .onSubmit(commit)
+            .disabled(isDisabled)
+
+            Text("%")
+                .foregroundStyle(ForelightStyle.muted)
+        }
+        .onChange(of: value) { newValue in
+            guard !focused else { return }
+            text = Self.display(newValue)
+        }
+        .onChange(of: focused) { isFocused in
+            if !isFocused {
+                commit()
+            }
+        }
+    }
+
+    private func commit() {
+        let lower = Int((range.lowerBound * 100).rounded())
+        let upper = Int((range.upperBound * 100).rounded())
+        let entered = Int(text) ?? Int((value * 100).rounded())
+        let clamped = min(max(entered, lower), upper)
+        text = String(clamped)
+        let normalized = Double(clamped) / 100
+        if normalized != value {
+            onChanged(normalized)
+        }
+    }
+
+    private static func display(_ value: Double) -> String {
+        String(Int((value * 100).rounded()))
+    }
+}
+
 struct SliderRow: View {
     let title: String
     let value: Double

@@ -494,10 +494,14 @@ struct SettingsView: View {
                             )
                             .frame(width: 150)
                             .disabled(!entry.isEnabled)
-                            Text("\(Int((entry.value * 100).rounded()))%")
-                                .font(.caption.monospacedDigit())
-                                .foregroundStyle(ForelightStyle.muted)
-                                .frame(width: 42, alignment: .trailing)
+                            PercentageField(
+                                value: entry.value,
+                                range: ForelightSettings.intensityRange,
+                                isDisabled: !entry.isEnabled
+                            ) { value in
+                                onSetAppIntensity(entry.bundleID, value)
+                            }
+                            .fixedSize()
                         }
                         .padding(.vertical, 2)
                         .tag(entry.bundleID)
@@ -570,10 +574,14 @@ struct SettingsView: View {
                             )
                             .frame(width: 150)
                             .disabled(!display.isDimmingEnabled)
-                            Text("\(Int((display.value * 100).rounded()))%")
-                                .font(.caption.monospacedDigit())
-                                .foregroundStyle(ForelightStyle.muted)
-                                .frame(width: 42, alignment: .trailing)
+                            PercentageField(
+                                value: display.value,
+                                range: ForelightSettings.intensityRange,
+                                isDisabled: !display.isDimmingEnabled
+                            ) { value in
+                                onSetDisplayIntensity(display.id, value)
+                            }
+                            .fixedSize()
                         }
                         .padding(.vertical, 2)
                         .tag(display.id)
