@@ -722,17 +722,11 @@ struct SettingsView: View {
                             ShortcutRecorder(
                                 combo: group.shortcut,
                                 onChange: { combo in onSetGroupShortcut(group.name, combo) },
-                                onRecordingChanged: onGroupShortcutRecordingChanged
+                                onRecordingChanged: onGroupShortcutRecordingChanged,
+                                onClear: { onSetGroupShortcut(group.name, nil) }
                             )
                             .frame(width: 110, height: 22)
-                            Button {
-                                onSetGroupShortcut(group.name, nil)
-                            } label: {
-                                Image(systemName: "xmark.circle")
-                            }
-                            .buttonStyle(.borderless)
-                            .disabled(group.shortcut == nil)
-                            .help("Clear this group's shortcut")
+                            .help("Click and press keys to assign; press Delete to clear")
 
                             Button("Apply") { onApplyGroup(group.name) }
                                 .buttonStyle(.bordered)

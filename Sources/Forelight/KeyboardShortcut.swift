@@ -45,18 +45,21 @@ struct ShortcutRecorder: NSViewRepresentable {
     let combo: KeyCombo?
     let onChange: (KeyCombo) -> Void
     let onRecordingChanged: (Bool) -> Void
+    var onClear: (() -> Void)? = nil
 
     func makeNSView(context: Context) -> ShortcutRecorderView {
         let view = ShortcutRecorderView()
         view.combo = combo
         view.onCapture = onChange
         view.onRecordingChanged = onRecordingChanged
+        view.onClear = onClear
         return view
     }
 
     func updateNSView(_ nsView: ShortcutRecorderView, context: Context) {
         nsView.combo = combo
         nsView.onRecordingChanged = onRecordingChanged
+        nsView.onClear = onClear
         nsView.needsDisplay = true
     }
 }
@@ -84,6 +87,7 @@ final class ShortcutRecorderView: NSView {
     var combo: KeyCombo?
     var onCapture: ((KeyCombo) -> Void)?
     var onRecordingChanged: ((Bool) -> Void)?
+    var onClear: (() -> Void)?
 
     private var isRecording = false
 
@@ -135,6 +139,14 @@ final class ShortcutRecorderView: NSView {
     override func keyDown(with event: NSEvent) {
         guard isRecording else {
             super.keyDown(with: event)
+            return
+        }
+
+        // Delete clears the shortcut.
+        if event.keyCode == 51 {
+            onClear?()
+            setRecording(false)
+            window?.makeFirstResponder(nil)
             return
         }
 
