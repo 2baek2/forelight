@@ -25,7 +25,7 @@ final class OverlayController {
     private(set) var fadeDuration: Double
     private(set) var restoreDelay: Double
     private var isEnabled = true
-    private var excludedBundleIDs: Set<String>
+    private var exceptions: [String: Bool]
     private var currentApplication: NSRunningApplication?
     private var isDraggingWindow = false
     private var mouseButtonDown = false
@@ -44,9 +44,12 @@ final class OverlayController {
     private let ownPID = ProcessInfo.processInfo.processIdentifier
 
     init() {
-        excludedBundleIDs = Set(
-            UserDefaults.standard.stringArray(forKey: Self.excludedBundleIDsKey) ?? []
-        )
+        if let stored = UserDefaults.standard.dictionary(forKey: Self.excludedBundleIDsKey) as? [String: Bool] {
+            exceptions = stored
+        } else {
+            let legacy = UserDefaults.standard.stringArray(forKey: Self.excludedBundleIDsKey) ?? []
+            exceptions = Dictionary(uniqueKeysWithValues: legacy.map { ($0, true) })
+        }
         let savedIntensity = UserDefaults.standard.double(forKey: ForelightSettings.intensityKey)
         intensity = savedIntensity > 0 ? savedIntensity : 0.45
         let defaults = UserDefaults.standard
@@ -59,9 +62,17 @@ final class OverlayController {
         currentApplication?.localizedName
     }
 
+    var currentApplicationBundleID: String? {
+        currentApplication?.bundleIdentifier
+    }
+
     var currentApplicationIsExcluded: Bool {
         guard let bundleIdentifier = currentApplication?.bundleIdentifier else { return false }
-        return excludedBundleIDs.contains(bundleIdentifier)
+        return exceptions[bundleIdentifier] == true
+    }
+
+    var exceptionStates: [String: Bool] {
+        exceptions
     }
 
     var accessibilityTrusted: Bool {
@@ -181,17 +192,29 @@ final class OverlayController {
 
     func toggleCurrentApplicationExclusion() {
         guard let bundleIdentifier = currentApplication?.bundleIdentifier else { return }
+        setException(bundleID: bundleIdentifier, enabled: exceptions[bundleIdentifier] != true)
+    }
 
-        if excludedBundleIDs.contains(bundleIdentifier) {
-            excludedBundleIDs.remove(bundleIdentifier)
-        } else {
-            excludedBundleIDs.insert(bundleIdentifier)
-        }
-        UserDefaults.standard.set(
-            Array(excludedBundleIDs).sorted(),
-            forKey: Self.excludedBundleIDsKey
-        )
+    func addException(bundleID: String) {
+        exceptions[bundleID] = true
+        persistExceptions()
         refresh()
+    }
+
+    func setException(bundleID: String, enabled: Bool) {
+        exceptions[bundleID] = enabled
+        persistExceptions()
+        refresh()
+    }
+
+    func removeException(bundleID: String) {
+        exceptions.removeValue(forKey: bundleID)
+        persistExceptions()
+        refresh()
+    }
+
+    private func persistExceptions() {
+        UserDefaults.standard.set(exceptions, forKey: Self.excludedBundleIDsKey)
     }
 
     func rebuildOverlays() {

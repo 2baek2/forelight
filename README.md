@@ -35,8 +35,8 @@ The local identity is machine-specific. For distributing Forelight to other Macs
 
 Forelight requests macOS Accessibility permission on first launch. This lets it detect real window movement and resizing, hide the dim layer while the window is moving, and restore the cutout when the window settles. If permission is not granted, the app keeps using its fallback window polling.
 
-Click the menu bar icon to open the compact control panel. It shows the current state, provides the continuous intensity slider, and lets you exclude the focused app. The exclusion is stored by Bundle ID and can be reversed with `Include <App>`.
+Click the menu bar icon to open the compact control panel. It shows the current state, provides the continuous intensity slider, and lets you exclude the focused app. Exclusions are stored by Bundle ID and can be reversed with `Include <App>`.
 
-Open `Settings…` for the Vorssaint-style sidebar settings window. It contains focus behavior, window-movement animation timing, app exceptions, and Accessibility permission status. The default global shortcut is `⌥⌘F`.
+Open `Settings…` for the Vorssaint-style sidebar settings window. It contains focus behavior, window-movement animation timing, app exceptions, and Accessibility permission status. Under `Exceptions`, the excluded apps are listed with a toggle each; use `+` to add apps and `−` to remove the selected one. Toggling an app off keeps it in the list without excluding it. The default global shortcut is `⌥⌘F`.
 
 The current prototype uses public AppKit, Application Services, NSWorkspace, and CoreGraphics APIs. App exclusions, Focus Groups, and Rules come after the overlay behavior is verified.

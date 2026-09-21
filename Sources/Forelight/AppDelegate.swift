@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
@@ -26,7 +27,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             intensity: controller.intensity,
             hideWhileMoving: controller.hideWhileMoving,
             fadeDuration: controller.fadeDuration,
-            restoreDelay: controller.restoreDelay
+            restoreDelay: controller.restoreDelay,
+            exceptions: []
         )
         super.init()
     }
@@ -101,6 +103,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             name: NSApplication.didChangeScreenParametersNotification,
             object: nil
         )
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(applicationActivationChanged),
+            name: NSApplication.didBecomeActiveNotification,
+            object: nil
+        )
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(applicationActivationChanged),
+            name: NSApplication.didResignActiveNotification,
+            object: nil
+        )
     }
 
     private func configureGlobalShortcut() {
@@ -130,6 +146,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         refreshUI()
     }
 
+    @objc private func applicationActivationChanged() {
+        // Keep the settings window above the dim overlay only while Forelight is
+        // the active app; otherwise behave like a normal window and go behind
+        // whatever the user is actually working in.
+        settingsWindow?.level = NSApp.isActive ? .modalPanel : .normal
+    }
+
     @objc private func togglePopover() {
         guard let button = statusItem.button else { return }
         if popover.isShown {
@@ -154,6 +177,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         model.hideWhileMoving = overlayController.hideWhileMoving
         model.fadeDuration = overlayController.fadeDuration
         model.restoreDelay = overlayController.restoreDelay
+        model.exceptions = overlayController.exceptionStates
+            .map { bundleID, isEnabled in
+                let info = AppInfoResolver.resolve(bundleID: bundleID)
+                return ExceptionEntry(
+                    bundleID: bundleID,
+                    name: info.name,
+                    icon: info.icon,
+                    isEnabled: isEnabled
+                )
+            }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
     private func updateStatusItem() {
@@ -198,6 +232,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         syncModel()
     }
 
+    private func setException(bundleID: String, enabled: Bool) {
+        overlayController.setException(bundleID: bundleID, enabled: enabled)
+        refreshUI()
+    }
+
+    private func removeException(bundleID: String) {
+        overlayController.removeException(bundleID: bundleID)
+        refreshUI()
+    }
+
+    private func addExceptionFromPanel() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.application]
+        panel.directoryURL = URL(fileURLWithPath: "/Applications")
+        panel.allowsMultipleSelection = true
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.prompt = "Add"
+        panel.message = "Choose applications to exclude from dimming."
+
+        guard panel.runModal() == .OK else { return }
+        for url in panel.urls {
+            if let bundleID = Bundle(url: url)?.bundleIdentifier {
+                overlayController.addException(bundleID: bundleID)
+            }
+        }
+        refreshUI()
+    }
+
     private func presentSettings(center: Bool = true) {
         if settingsWindow == nil {
             let window = NSWindow(
@@ -208,7 +271,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             )
             window.title = "Forelight Settings"
             window.minSize = NSSize(width: 700, height: 460)
-            window.level = .statusBar
             window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
             window.isReleasedWhenClosed = false
             window.delegate = self
@@ -224,7 +286,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                     onToggleMoving: { [weak self] value in self?.setHideWhileMoving(value) },
                     onFadeDurationChanged: { [weak self] value in self?.setFadeDuration(value) },
                     onRestoreDelayChanged: { [weak self] value in self?.setRestoreDelay(value) },
-                    onToggleExclusion: { [weak self] in self?.toggleCurrentApplicationExclusion() },
+                    onSetException: { [weak self] bundleID, enabled in self?.setException(bundleID: bundleID, enabled: enabled) },
+                    onRemoveException: { [weak self] bundleID in self?.removeException(bundleID: bundleID) },
+                    onAddException: { [weak self] in self?.addExceptionFromPanel() },
                     onOpenAccessibilitySettings: { [weak self] in self?.overlayController.openAccessibilitySettings() }
                 )
             )
@@ -239,6 +303,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         settingsWindow?.orderFrontRegardless()
         settingsWindow?.makeKeyAndOrderFront(nil)
+        settingsWindow?.level = .modalPanel
     }
 
     func windowWillClose(_ notification: Notification) {

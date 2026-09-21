@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct MenuPanelView: View {
@@ -87,10 +88,13 @@ struct SettingsView: View {
     let onToggleMoving: (Bool) -> Void
     let onFadeDurationChanged: (Double) -> Void
     let onRestoreDelayChanged: (Double) -> Void
-    let onToggleExclusion: () -> Void
+    let onSetException: (String, Bool) -> Void
+    let onRemoveException: (String) -> Void
+    let onAddException: () -> Void
     let onOpenAccessibilitySettings: () -> Void
 
     @State private var selectedSection: Section = .general
+    @State private var selectedExceptionID: String?
 
     var body: some View {
         HStack(spacing: 0) {
@@ -167,23 +171,61 @@ struct SettingsView: View {
                 }
             }
         case .exceptions:
-            GroupBox {
-                VStack(alignment: .leading, spacing: 12) {
-                    if let currentApplicationName = model.currentApplicationName {
-                        Text(currentApplicationName)
-                            .font(.headline)
-                        Text(model.currentApplicationIsExcluded ? "This app is excluded from dimming." : "This app is currently included in focus mode.")
-                            .foregroundStyle(.secondary)
-                        Button(model.currentApplicationIsExcluded ? "Include App" : "Exclude App", action: onToggleExclusion)
-                    } else {
-                        Text("No active application")
-                            .foregroundStyle(.secondary)
-                    }
-                    Text("You can also manage the current app from the menu bar panel.")
-                        .font(.callout)
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Apps listed here are excluded from dimming. Toggle an app off to keep it in the list without excluding it.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+
+                if model.exceptions.isEmpty {
+                    Text("No apps are excluded yet. Use + to add one.")
                         .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, minHeight: 220)
+                } else {
+                    List(selection: $selectedExceptionID) {
+                        ForEach(model.exceptions) { entry in
+                            HStack(spacing: 10) {
+                                if let icon = entry.icon {
+                                    Image(nsImage: icon)
+                                        .resizable()
+                                        .frame(width: 20, height: 20)
+                                } else {
+                                    Image(systemName: "app.dashed")
+                                        .frame(width: 20, height: 20)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Text(entry.name)
+                                Spacer()
+                                Toggle("", isOn: Binding(
+                                    get: { entry.isEnabled },
+                                    set: { value in onSetException(entry.bundleID, value) }
+                                ))
+                                    .labelsHidden()
+                            }
+                            .tag(entry.bundleID)
+                        }
+                    }
+                    .frame(minHeight: 220)
                 }
-                .padding(8)
+
+                HStack(spacing: 6) {
+                    Button(action: onAddException) {
+                        Image(systemName: "plus")
+                    }
+                    .help("Add an application")
+
+                    Button {
+                        guard let selectedExceptionID else { return }
+                        onRemoveException(selectedExceptionID)
+                        self.selectedExceptionID = nil
+                    } label: {
+                        Image(systemName: "minus")
+                    }
+                    .disabled(selectedExceptionID == nil)
+                    .help("Remove the selected application")
+
+                    Spacer()
+                }
+                .buttonStyle(.borderless)
             }
         case .advanced:
             VStack(alignment: .leading, spacing: 18) {
