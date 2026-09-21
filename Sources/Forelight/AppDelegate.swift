@@ -1,4 +1,5 @@
 import AppKit
+import Carbon
 import ServiceManagement
 import SwiftUI
 import UniformTypeIdentifiers
@@ -58,6 +59,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         configureStatusItem()
         configureNotifications()
         configureGlobalShortcut()
+        configureURLEvents()
         overlayController.start()
         overlayController.setEnabled(enabled)
         refreshUI()
@@ -72,6 +74,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         keyboardMonitors.forEach { NSEvent.removeMonitor($0) }
         keyboardMonitors.removeAll()
+        NSAppleEventManager.shared().removeEventHandler(
+            forEventClass: AEEventClass(kInternetEventClass),
+            andEventID: AEEventID(kAEGetURL)
+        )
         overlayController.stop()
     }
 
@@ -171,6 +177,56 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             return event
         }) {
             keyboardMonitors.append(localMonitor)
+        }
+    }
+
+    private func configureURLEvents() {
+        NSAppleEventManager.shared().setEventHandler(
+            self,
+            andSelector: #selector(handleGetURLEvent(_:withReply:)),
+            forEventClass: AEEventClass(kInternetEventClass),
+            andEventID: AEEventID(kAEGetURL)
+        )
+    }
+
+    @objc private func handleGetURLEvent(_ event: NSAppleEventDescriptor, withReply reply: NSAppleEventDescriptor) {
+        guard let value = event.paramDescriptor(forKeyword: keyDirectObject)?.stringValue,
+              let url = URL(string: value) else {
+            return
+        }
+        handle(url: url)
+    }
+
+    private func handle(url: URL) {
+        guard url.scheme?.lowercased() == "forelight" else { return }
+
+        let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        let query = Dictionary(
+            (components?.queryItems ?? []).compactMap { item in item.value.map { (item.name, $0) } },
+            uniquingKeysWith: { _, latest in latest }
+        )
+
+        switch url.host?.lowercased() ?? "" {
+        case "toggle":
+            setEnabled(!enabled)
+        case "enable":
+            setEnabled(true)
+        case "disable":
+            setEnabled(false)
+        case "snooze":
+            snooze(forMinutes: Int(query["minutes"] ?? "") ?? 30)
+        case "resume":
+            cancelSnooze()
+        case "intensity":
+            if let value = Double(query["value"] ?? "") {
+                setIntensity(value)
+            }
+        case "appearance":
+            if let raw = query["mode"], let mode = AppearanceMode(rawValue: raw.lowercased()) {
+                setAppearanceMode(mode)
+            }
+        default:
+            break
         }
     }
 

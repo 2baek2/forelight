@@ -8,11 +8,16 @@ let package = Package(
         .macOS(.v13)
     ],
     products: [
-        .executable(name: "Forelight", targets: ["Forelight"])
+        .executable(name: "Forelight", targets: ["Forelight"]),
+        .executable(name: "forelight-cli", targets: ["forelight-cli"])
     ],
     targets: [
         .executableTarget(
             name: "Forelight"
+        ),
+        .executableTarget(
+            name: "forelight-cli",
+            path: "Sources/ForelightCLI"
         ),
         .testTarget(
             name: "ForelightTests",
