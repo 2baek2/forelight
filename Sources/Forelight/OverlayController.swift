@@ -20,15 +20,12 @@ enum ForelightSettings {
     static let spotlightFeatherKey = "spotlightFeather"
     static let cutoutRadiusKey = "cutoutCornerRadius"
     static let cutoutPaddingKey = "cutoutPadding"
-    static let dimTintKey = "dimTint"
+    static let tintRedKey = "tintRed"
+    static let tintGreenKey = "tintGreen"
+    static let tintBlueKey = "tintBlue"
     static let cutoutAllWindowsKey = "cutoutAllWindows"
     static let cutoutAnimationKey = "cutoutAnimationDuration"
     static let vignetteKey = "vignetteStrength"
-    static let blurEnabledKey = "blurEnabled"
-    static let blurTintRedKey = "blurTintRed"
-    static let blurTintGreenKey = "blurTintGreen"
-    static let blurTintBlueKey = "blurTintBlue"
-    static let blurTintAlphaKey = "blurTintAlpha"
     static let rulesKey = "rules"
     static let focusGroupsKey = "focusGroups"
     static let hasCompletedOnboardingKey = "hasCompletedOnboarding"
@@ -59,15 +56,12 @@ enum ForelightSettings {
         spotlightFeatherKey,
         cutoutRadiusKey,
         cutoutPaddingKey,
-        dimTintKey,
+        tintRedKey,
+        tintGreenKey,
+        tintBlueKey,
         cutoutAllWindowsKey,
         cutoutAnimationKey,
         vignetteKey,
-        blurEnabledKey,
-        blurTintRedKey,
-        blurTintGreenKey,
-        blurTintBlueKey,
-        blurTintAlphaKey,
         rulesKey,
         focusGroupsKey
     ]
@@ -113,15 +107,12 @@ final class OverlayController {
     private(set) var spotlightFeather: Double
     private(set) var cutoutRadius: Double
     private(set) var cutoutPadding: Double
-    private(set) var dimTint: DimTint
+    private(set) var tintRed: Double
+    private(set) var tintGreen: Double
+    private(set) var tintBlue: Double
     private(set) var cutoutAllWindows: Bool
     private(set) var cutoutAnimationDuration: Double
     private(set) var vignetteStrength: Double
-    private(set) var blurEnabled: Bool
-    private(set) var blurTintRed: Double
-    private(set) var blurTintGreen: Double
-    private(set) var blurTintBlue: Double
-    private(set) var blurTintAlpha: Double
     private var isEnabled = true
     private var exceptions: [String: Bool]
     private var appIntensities: [String: Double]
@@ -209,15 +200,12 @@ final class OverlayController {
         spotlightFeather = defaults.object(forKey: ForelightSettings.spotlightFeatherKey) as? Double ?? 40
         cutoutRadius = defaults.object(forKey: ForelightSettings.cutoutRadiusKey) as? Double ?? 8
         cutoutPadding = defaults.object(forKey: ForelightSettings.cutoutPaddingKey) as? Double ?? 2
-        dimTint = DimTint(rawValue: defaults.string(forKey: ForelightSettings.dimTintKey) ?? "") ?? .black
+        tintRed = defaults.object(forKey: ForelightSettings.tintRedKey) as? Double ?? 0
+        tintGreen = defaults.object(forKey: ForelightSettings.tintGreenKey) as? Double ?? 0
+        tintBlue = defaults.object(forKey: ForelightSettings.tintBlueKey) as? Double ?? 0
         cutoutAllWindows = defaults.object(forKey: ForelightSettings.cutoutAllWindowsKey) as? Bool ?? false
         cutoutAnimationDuration = defaults.object(forKey: ForelightSettings.cutoutAnimationKey) as? Double ?? 0.12
         vignetteStrength = defaults.object(forKey: ForelightSettings.vignetteKey) as? Double ?? 0
-        blurEnabled = defaults.bool(forKey: ForelightSettings.blurEnabledKey)
-        blurTintRed = defaults.object(forKey: ForelightSettings.blurTintRedKey) as? Double ?? 0
-        blurTintGreen = defaults.object(forKey: ForelightSettings.blurTintGreenKey) as? Double ?? 0
-        blurTintBlue = defaults.object(forKey: ForelightSettings.blurTintBlueKey) as? Double ?? 0
-        blurTintAlpha = defaults.object(forKey: ForelightSettings.blurTintAlphaKey) as? Double ?? 0
     }
 
     var currentApplicationName: String? {
@@ -596,15 +584,12 @@ final class OverlayController {
         spotlightFeather = defaults.object(forKey: ForelightSettings.spotlightFeatherKey) as? Double ?? 40
         cutoutRadius = defaults.object(forKey: ForelightSettings.cutoutRadiusKey) as? Double ?? 8
         cutoutPadding = defaults.object(forKey: ForelightSettings.cutoutPaddingKey) as? Double ?? 2
-        dimTint = DimTint(rawValue: defaults.string(forKey: ForelightSettings.dimTintKey) ?? "") ?? .black
+        tintRed = defaults.object(forKey: ForelightSettings.tintRedKey) as? Double ?? 0
+        tintGreen = defaults.object(forKey: ForelightSettings.tintGreenKey) as? Double ?? 0
+        tintBlue = defaults.object(forKey: ForelightSettings.tintBlueKey) as? Double ?? 0
         cutoutAllWindows = defaults.object(forKey: ForelightSettings.cutoutAllWindowsKey) as? Bool ?? false
         cutoutAnimationDuration = defaults.object(forKey: ForelightSettings.cutoutAnimationKey) as? Double ?? 0.12
         vignetteStrength = defaults.object(forKey: ForelightSettings.vignetteKey) as? Double ?? 0
-        blurEnabled = defaults.bool(forKey: ForelightSettings.blurEnabledKey)
-        blurTintRed = defaults.object(forKey: ForelightSettings.blurTintRedKey) as? Double ?? 0
-        blurTintGreen = defaults.object(forKey: ForelightSettings.blurTintGreenKey) as? Double ?? 0
-        blurTintBlue = defaults.object(forKey: ForelightSettings.blurTintBlueKey) as? Double ?? 0
-        blurTintAlpha = defaults.object(forKey: ForelightSettings.blurTintAlphaKey) as? Double ?? 0
         activeGroupName = nil
         updateSpotlightTimer()
         refresh()
@@ -752,9 +737,15 @@ final class OverlayController {
         refresh()
     }
 
-    func setDimTint(_ tint: DimTint) {
-        dimTint = tint
-        UserDefaults.standard.set(tint.rawValue, forKey: ForelightSettings.dimTintKey)
+    func setTint(red: Double, green: Double, blue: Double) {
+        tintRed = min(max(red, 0), 1)
+        tintGreen = min(max(green, 0), 1)
+        tintBlue = min(max(blue, 0), 1)
+
+        let defaults = UserDefaults.standard
+        defaults.set(tintRed, forKey: ForelightSettings.tintRedKey)
+        defaults.set(tintGreen, forKey: ForelightSettings.tintGreenKey)
+        defaults.set(tintBlue, forKey: ForelightSettings.tintBlueKey)
         refresh()
     }
 
@@ -781,36 +772,16 @@ final class OverlayController {
         refresh()
     }
 
-    func setBlurEnabled(_ value: Bool) {
-        blurEnabled = value
-        UserDefaults.standard.set(value, forKey: ForelightSettings.blurEnabledKey)
-        refresh()
-    }
-
-    func setBlurTint(red: Double, green: Double, blue: Double, alpha: Double) {
-        blurTintRed = min(max(red, 0), 1)
-        blurTintGreen = min(max(green, 0), 1)
-        blurTintBlue = min(max(blue, 0), 1)
-        blurTintAlpha = min(max(alpha, 0), 1)
-
-        let defaults = UserDefaults.standard
-        defaults.set(blurTintRed, forKey: ForelightSettings.blurTintRedKey)
-        defaults.set(blurTintGreen, forKey: ForelightSettings.blurTintGreenKey)
-        defaults.set(blurTintBlue, forKey: ForelightSettings.blurTintBlueKey)
-        defaults.set(blurTintAlpha, forKey: ForelightSettings.blurTintAlphaKey)
-        refresh()
+    private var tintColor: NSColor {
+        NSColor(srgbRed: tintRed, green: tintGreen, blue: tintBlue, alpha: 1)
     }
 
     private var dimStyle: DimStyle {
         DimStyle(
             cornerRadius: cutoutRadius,
             padding: cutoutPadding,
-            tint: dimTint,
-            vignette: vignetteStrength,
-            blurEnabled: blurEnabled,
-            blurTint: blurTintAlpha > 0
-                ? NSColor(srgbRed: blurTintRed, green: blurTintGreen, blue: blurTintBlue, alpha: blurTintAlpha)
-                : nil
+            tint: tintColor,
+            vignette: vignetteStrength
         )
     }
 

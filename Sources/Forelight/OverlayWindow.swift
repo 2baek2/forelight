@@ -19,6 +19,7 @@ enum SpotlightMode: String, CaseIterable, Codable, Identifiable {
     var includesCursor: Bool { self != .window }
 }
 
+/// Preset dim colors offered as quick choices next to the custom color picker.
 enum DimTint: String, CaseIterable, Identifiable {
     case black
     case warm
@@ -46,19 +47,10 @@ enum DimTint: String, CaseIterable, Identifiable {
 struct DimStyle {
     var cornerRadius: CGFloat
     var padding: CGFloat
-    var tint: DimTint
+    var tint: NSColor
     var vignette: Double
-    var blurEnabled: Bool
-    var blurTint: NSColor?
 
-    static let `default` = DimStyle(
-        cornerRadius: 8,
-        padding: 2,
-        tint: .black,
-        vignette: 0,
-        blurEnabled: false,
-        blurTint: nil
-    )
+    static let `default` = DimStyle(cornerRadius: 8, padding: 2, tint: .black, vignette: 0)
 }
 
 struct Spotlight {
@@ -82,12 +74,7 @@ enum RectAnimation {
 final class OverlayWindow: NSWindow {
     let targetScreen: NSScreen
     private let overlayView: OverlayView
-    private let effectView = NSVisualEffectView()
-    private let maskLayer = CAShapeLayer()
     private var visibilityAnimationID = 0
-    private var lastCutouts: [CGRect] = []
-    private var lastStyle: DimStyle = .default
-    private var lastMaskUpdate = Date.distantPast
 
     init(screen: NSScreen) {
         targetScreen = screen
@@ -107,27 +94,7 @@ final class OverlayWindow: NSWindow {
         // Keep the dim layer out of screen recordings and screen shares.
         sharingType = .none
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
-
-        let container = NSView(frame: screen.frame)
-
-        effectView.material = .hudWindow
-        effectView.blendingMode = .behindWindow
-        effectView.state = .active
-        effectView.isEmphasized = false
-        effectView.frame = container.bounds
-        effectView.autoresizingMask = [.width, .height]
-        effectView.wantsLayer = true
-        maskLayer.fillRule = .evenOdd
-        maskLayer.frame = effectView.bounds
-        effectView.layer?.mask = maskLayer
-        effectView.isHidden = true
-
-        overlayView.frame = container.bounds
-        overlayView.autoresizingMask = [.width, .height]
-
-        container.addSubview(effectView)
-        container.addSubview(overlayView)
-        contentView = container
+        contentView = overlayView
     }
 
     required init?(coder: NSCoder) {
@@ -138,25 +105,17 @@ final class OverlayWindow: NSWindow {
     override var canBecomeMain: Bool { false }
 
     func update(cutouts: [CGRect], alpha: Double, style: DimStyle, animationDuration: TimeInterval) {
-        let localCutouts = cutouts.map { convertToLocalCoordinates($0) }
-
-        lastCutouts = localCutouts
-        lastStyle = style
-
         overlayView.alpha = alpha
         overlayView.style = style
-        overlayView.setCutouts(localCutouts, animationDuration: animationDuration)
-
-        effectView.isHidden = !style.blurEnabled
-        if style.blurEnabled {
-            refreshMask(force: true)
-        }
+        overlayView.setCutouts(
+            cutouts.map { convertToLocalCoordinates($0) },
+            animationDuration: animationDuration
+        )
     }
 
     func updateSpotlight(globalCenter: CGPoint, radius: CGFloat, feather: CGFloat) {
         guard frame.contains(globalCenter) else {
             overlayView.setSpotlight(nil)
-            refreshMask()
             return
         }
         let local = CGPoint(
@@ -164,12 +123,10 @@ final class OverlayWindow: NSWindow {
             y: globalCenter.y - frame.origin.y
         )
         overlayView.setSpotlight(Spotlight(center: local, radius: radius, feather: feather))
-        refreshMask()
     }
 
     func clearSpotlight() {
         overlayView.setSpotlight(nil)
-        refreshMask()
     }
 
     func fadeOut(duration: TimeInterval) {
@@ -220,44 +177,6 @@ final class OverlayWindow: NSWindow {
         if !isVisible {
             orderFrontRegardless()
         }
-    }
-
-    // MARK: - Blur mask
-
-    /// The blur is clipped to the dimmed area so the cutouts and spotlight stay
-    /// sharp. Throttled because the spotlight moves at 60fps.
-    private func refreshMask(force: Bool = false) {
-        guard lastStyle.blurEnabled else { return }
-
-        let now = Date()
-        guard force || now.timeIntervalSince(lastMaskUpdate) > 0.05 else { return }
-        lastMaskUpdate = now
-
-        let path = CGMutablePath()
-        path.addRect(effectView.bounds)
-
-        for cutout in lastCutouts {
-            let safeCutout = cutout.intersection(effectView.bounds)
-            guard !safeCutout.isNull, !safeCutout.isEmpty else { continue }
-            let expanded = safeCutout.insetBy(dx: -lastStyle.padding, dy: -lastStyle.padding)
-            path.addRoundedRect(
-                in: expanded,
-                cornerWidth: max(lastStyle.cornerRadius, 0),
-                cornerHeight: max(lastStyle.cornerRadius, 0)
-            )
-        }
-
-        if let spotlight = overlayView.spotlight, spotlight.radius > 0 {
-            path.addEllipse(in: CGRect(
-                x: spotlight.center.x - spotlight.radius,
-                y: spotlight.center.y - spotlight.radius,
-                width: spotlight.radius * 2,
-                height: spotlight.radius * 2
-            ))
-        }
-
-        maskLayer.frame = effectView.bounds
-        maskLayer.path = path
     }
 
     private func convertToLocalCoordinates(_ globalFrame: CGRect) -> CGRect {
@@ -339,12 +258,7 @@ final class OverlayView: NSView {
             clearCutouts(in: context)
         }
 
-        if let blurTint = style.blurTint {
-            blurTint.setFill()
-            overlayPath.fill()
-        }
-
-        style.tint.color.withAlphaComponent(alpha).setFill()
+        style.tint.withAlphaComponent(alpha).setFill()
         overlayPath.fill()
 
         if let spotlight, spotlight.radius > 0 {
@@ -366,8 +280,8 @@ final class OverlayView: NSView {
         let center = CGPoint(x: bounds.midX, y: bounds.midY)
         let radius = max(hypot(bounds.width, bounds.height) / 2, 1)
         let colors = [
-            style.tint.color.withAlphaComponent(0).cgColor,
-            style.tint.color.withAlphaComponent(style.vignette).cgColor
+            style.tint.withAlphaComponent(0).cgColor,
+            style.tint.withAlphaComponent(style.vignette).cgColor
         ] as CFArray
 
         guard let gradient = CGGradient(
@@ -424,8 +338,8 @@ final class OverlayView: NSView {
         let inner = min(max(radius - spotlight.feather, 0), radius)
         let solidStop = min(max(inner / radius, 0), 0.999)
 
-        let opaque = style.tint.color.withAlphaComponent(1).cgColor
-        let clear = style.tint.color.withAlphaComponent(0).cgColor
+        let opaque = style.tint.withAlphaComponent(1).cgColor
+        let clear = style.tint.withAlphaComponent(0).cgColor
         guard let gradient = CGGradient(
             colorsSpace: CGColorSpaceCreateDeviceRGB(),
             colors: [opaque, opaque, clear] as CFArray,

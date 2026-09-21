@@ -24,15 +24,12 @@ struct SettingsDocument: Codable, Equatable {
     var spotlightFeather: Double?
     var cutoutRadius: Double?
     var cutoutPadding: Double?
-    var dimTint: String?
+    var tintRed: Double?
+    var tintGreen: Double?
+    var tintBlue: Double?
     var cutoutAllWindows: Bool?
     var cutoutAnimationDuration: Double?
     var vignetteStrength: Double?
-    var blurEnabled: Bool?
-    var blurTintRed: Double?
-    var blurTintGreen: Double?
-    var blurTintBlue: Double?
-    var blurTintAlpha: Double?
     var rules: [Rule]?
     var focusGroups: [FocusGroup]?
 
@@ -69,15 +66,12 @@ struct SettingsDocument: Codable, Equatable {
         document.spotlightFeather = defaults.object(forKey: ForelightSettings.spotlightFeatherKey) as? Double
         document.cutoutRadius = defaults.object(forKey: ForelightSettings.cutoutRadiusKey) as? Double
         document.cutoutPadding = defaults.object(forKey: ForelightSettings.cutoutPaddingKey) as? Double
-        document.dimTint = defaults.string(forKey: ForelightSettings.dimTintKey)
+        document.tintRed = defaults.object(forKey: ForelightSettings.tintRedKey) as? Double
+        document.tintGreen = defaults.object(forKey: ForelightSettings.tintGreenKey) as? Double
+        document.tintBlue = defaults.object(forKey: ForelightSettings.tintBlueKey) as? Double
         document.cutoutAllWindows = defaults.object(forKey: ForelightSettings.cutoutAllWindowsKey) as? Bool
         document.cutoutAnimationDuration = defaults.object(forKey: ForelightSettings.cutoutAnimationKey) as? Double
         document.vignetteStrength = defaults.object(forKey: ForelightSettings.vignetteKey) as? Double
-        document.blurEnabled = defaults.object(forKey: ForelightSettings.blurEnabledKey) as? Bool
-        document.blurTintRed = defaults.object(forKey: ForelightSettings.blurTintRedKey) as? Double
-        document.blurTintGreen = defaults.object(forKey: ForelightSettings.blurTintGreenKey) as? Double
-        document.blurTintBlue = defaults.object(forKey: ForelightSettings.blurTintBlueKey) as? Double
-        document.blurTintAlpha = defaults.object(forKey: ForelightSettings.blurTintAlphaKey) as? Double
         if let data = defaults.data(forKey: ForelightSettings.rulesKey) {
             document.rules = try? JSONDecoder().decode([Rule].self, from: data)
         }
@@ -140,8 +134,14 @@ struct SettingsDocument: Codable, Equatable {
         if let cutoutPadding {
             defaults.set(cutoutPadding, forKey: ForelightSettings.cutoutPaddingKey)
         }
-        if let dimTint {
-            defaults.set(dimTint, forKey: ForelightSettings.dimTintKey)
+        if let tintRed {
+            defaults.set(tintRed, forKey: ForelightSettings.tintRedKey)
+        }
+        if let tintGreen {
+            defaults.set(tintGreen, forKey: ForelightSettings.tintGreenKey)
+        }
+        if let tintBlue {
+            defaults.set(tintBlue, forKey: ForelightSettings.tintBlueKey)
         }
         if let cutoutAllWindows {
             defaults.set(cutoutAllWindows, forKey: ForelightSettings.cutoutAllWindowsKey)
@@ -151,21 +151,6 @@ struct SettingsDocument: Codable, Equatable {
         }
         if let vignetteStrength {
             defaults.set(vignetteStrength, forKey: ForelightSettings.vignetteKey)
-        }
-        if let blurEnabled {
-            defaults.set(blurEnabled, forKey: ForelightSettings.blurEnabledKey)
-        }
-        if let blurTintRed {
-            defaults.set(blurTintRed, forKey: ForelightSettings.blurTintRedKey)
-        }
-        if let blurTintGreen {
-            defaults.set(blurTintGreen, forKey: ForelightSettings.blurTintGreenKey)
-        }
-        if let blurTintBlue {
-            defaults.set(blurTintBlue, forKey: ForelightSettings.blurTintBlueKey)
-        }
-        if let blurTintAlpha {
-            defaults.set(blurTintAlpha, forKey: ForelightSettings.blurTintAlphaKey)
         }
         if let rules, let data = try? JSONEncoder().encode(rules) {
             defaults.set(data, forKey: ForelightSettings.rulesKey)

@@ -237,12 +237,10 @@ struct SettingsView: View {
     let onSpotlightFeatherChanged: (Double) -> Void
     let onCutoutRadiusChanged: (Double) -> Void
     let onCutoutPaddingChanged: (Double) -> Void
-    let onDimTintChanged: (DimTint) -> Void
+    let onTintChanged: (Double, Double, Double) -> Void
     let onSetCutoutAllWindows: (Bool) -> Void
     let onCutoutAnimationChanged: (Double) -> Void
     let onVignetteChanged: (Double) -> Void
-    let onSetBlurEnabled: (Bool) -> Void
-    let onBlurTintChanged: (Double, Double, Double, Double) -> Void
     let onAppearanceModeChanged: (AppearanceMode) -> Void
     let onShortcutChanged: (KeyCombo) -> Void
     let onShortcutRecordingChanged: (Bool) -> Void
@@ -326,20 +324,28 @@ struct SettingsView: View {
         .tint(ForelightStyle.accent)
     }
 
-    private var blurColorBinding: Binding<Color> {
+    private var tintColorBinding: Binding<Color> {
         Binding(
             get: {
-                Color(red: model.blurTintRed, green: model.blurTintGreen, blue: model.blurTintBlue)
+                Color(red: model.tintRed, green: model.tintGreen, blue: model.tintBlue)
             },
             set: { newValue in
                 let color = NSColor(newValue).usingColorSpace(.sRGB) ?? .black
-                onBlurTintChanged(
+                onTintChanged(
                     Double(color.redComponent),
                     Double(color.greenComponent),
-                    Double(color.blueComponent),
-                    model.blurTintAlpha
+                    Double(color.blueComponent)
                 )
             }
+        )
+    }
+
+    private func applyTintPreset(_ preset: DimTint) {
+        let color = preset.color.usingColorSpace(.sRGB) ?? .black
+        onTintChanged(
+            Double(color.redComponent),
+            Double(color.greenComponent),
+            Double(color.blueComponent)
         )
     }
 
@@ -500,21 +506,22 @@ struct SettingsView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     SectionHeader(title: "Dim style")
                     Card {
-                        HStack {
-                            Text("Tint")
-                                .foregroundStyle(ForelightStyle.text)
-                            Spacer()
-                            Picker("", selection: Binding(
-                                get: { model.dimTint },
-                                set: { tint in onDimTintChanged(tint) }
-                            )) {
-                                ForEach(DimTint.allCases) { tint in
-                                    Text(tint.label).tag(tint)
-                                }
+                        VStack(alignment: .leading, spacing: 10) {
+                            HStack {
+                                Text("Tint")
+                                    .foregroundStyle(ForelightStyle.text)
+                                Spacer()
+                                ColorPicker("", selection: tintColorBinding, supportsOpacity: false)
+                                    .labelsHidden()
                             }
-                            .pickerStyle(.segmented)
-                            .labelsHidden()
-                            .frame(width: 220)
+                            HStack(spacing: 6) {
+                                ForEach(DimTint.allCases) { preset in
+                                    Button(preset.label) { applyTintPreset(preset) }
+                                        .buttonStyle(.bordered)
+                                        .controlSize(.small)
+                                }
+                                Spacer()
+                            }
                         }
                         .padding(12)
                         CardDivider()
@@ -562,45 +569,6 @@ struct SettingsView: View {
                             range: ForelightSettings.vignetteRange,
                             suffix: "",
                             onChanged: onVignetteChanged
-                        )
-                        CardDivider()
-                        CardRow(
-                            title: "Blur",
-                            subtitle: "Frost the dimmed area behind the cutouts",
-                            systemImage: "drop"
-                        ) {
-                            Toggle("", isOn: Binding(
-                                get: { model.blurEnabled },
-                                set: { value in onSetBlurEnabled(value) }
-                            ))
-                            .labelsHidden()
-                            .toggleStyle(.switch)
-                            .controlSize(.small)
-                        }
-                        CardDivider()
-                        HStack {
-                            Text("Blur color")
-                                .foregroundStyle(ForelightStyle.text)
-                            Spacer()
-                            ColorPicker("", selection: blurColorBinding, supportsOpacity: false)
-                                .labelsHidden()
-                        }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 10)
-                        CardDivider()
-                        SliderRow(
-                            title: "Blur strength",
-                            value: model.blurTintAlpha,
-                            range: 0...1,
-                            suffix: "",
-                            onChanged: { value in
-                                onBlurTintChanged(
-                                    model.blurTintRed,
-                                    model.blurTintGreen,
-                                    model.blurTintBlue,
-                                    value
-                                )
-                            }
                         )
                     }
                 }

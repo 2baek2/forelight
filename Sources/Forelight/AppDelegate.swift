@@ -62,15 +62,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             spotlightFeather: controller.spotlightFeather,
             cutoutRadius: controller.cutoutRadius,
             cutoutPadding: controller.cutoutPadding,
-            dimTint: controller.dimTint,
+            tintRed: controller.tintRed,
+            tintGreen: controller.tintGreen,
+            tintBlue: controller.tintBlue,
             cutoutAllWindows: controller.cutoutAllWindows,
             cutoutAnimationDuration: controller.cutoutAnimationDuration,
             vignetteStrength: controller.vignetteStrength,
-            blurEnabled: controller.blurEnabled,
-            blurTintRed: controller.blurTintRed,
-            blurTintGreen: controller.blurTintGreen,
-            blurTintBlue: controller.blurTintBlue,
-            blurTintAlpha: controller.blurTintAlpha,
             rules: controller.rules,
             activeRuleID: nil
         )
@@ -514,15 +511,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         model.spotlightFeather = overlayController.spotlightFeather
         model.cutoutRadius = overlayController.cutoutRadius
         model.cutoutPadding = overlayController.cutoutPadding
-        model.dimTint = overlayController.dimTint
+        model.tintRed = overlayController.tintRed
+        model.tintGreen = overlayController.tintGreen
+        model.tintBlue = overlayController.tintBlue
         model.cutoutAllWindows = overlayController.cutoutAllWindows
         model.cutoutAnimationDuration = overlayController.cutoutAnimationDuration
         model.vignetteStrength = overlayController.vignetteStrength
-        model.blurEnabled = overlayController.blurEnabled
-        model.blurTintRed = overlayController.blurTintRed
-        model.blurTintGreen = overlayController.blurTintGreen
-        model.blurTintBlue = overlayController.blurTintBlue
-        model.blurTintAlpha = overlayController.blurTintAlpha
         model.rules = overlayController.rules
         model.activeRuleID = overlayController.activeRuleID
         model.displays = NSScreen.screens.compactMap { screen -> DisplayIntensityEntry? in
@@ -975,9 +969,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         syncModel()
     }
 
-    private func setDimTint(_ tint: DimTint) {
-        overlayController.setDimTint(tint)
-        refreshUI()
+    private func setTint(red: Double, green: Double, blue: Double) {
+        overlayController.setTint(red: red, green: green, blue: blue)
+        syncModel()
     }
 
     private func setCutoutAllWindows(_ value: Bool) {
@@ -992,16 +986,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     private func setVignetteStrength(_ value: Double) {
         overlayController.setVignetteStrength(value)
-        syncModel()
-    }
-
-    private func setBlurEnabled(_ value: Bool) {
-        overlayController.setBlurEnabled(value)
-        refreshUI()
-    }
-
-    private func setBlurTint(red: Double, green: Double, blue: Double, alpha: Double) {
-        overlayController.setBlurTint(red: red, green: green, blue: blue, alpha: alpha)
         syncModel()
     }
 
@@ -1110,14 +1094,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                     onSpotlightFeatherChanged: { [weak self] value in self?.setSpotlightFeather(value) },
                     onCutoutRadiusChanged: { [weak self] value in self?.setCutoutRadius(value) },
                     onCutoutPaddingChanged: { [weak self] value in self?.setCutoutPadding(value) },
-                    onDimTintChanged: { [weak self] tint in self?.setDimTint(tint) },
+                    onTintChanged: { [weak self] red, green, blue in self?.setTint(red: red, green: green, blue: blue) },
                     onSetCutoutAllWindows: { [weak self] value in self?.setCutoutAllWindows(value) },
                     onCutoutAnimationChanged: { [weak self] value in self?.setCutoutAnimationDuration(value) },
                     onVignetteChanged: { [weak self] value in self?.setVignetteStrength(value) },
-                    onSetBlurEnabled: { [weak self] value in self?.setBlurEnabled(value) },
-                    onBlurTintChanged: { [weak self] red, green, blue, alpha in
-                        self?.setBlurTint(red: red, green: green, blue: blue, alpha: alpha)
-                    },
                     onAppearanceModeChanged: { [weak self] mode in self?.setAppearanceMode(mode) },
                     onShortcutChanged: { [weak self] combo in self?.setShortcut(combo) },
                     onShortcutRecordingChanged: { [weak self] recording in self?.setShortcutRecording(recording) },

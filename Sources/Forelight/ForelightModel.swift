@@ -68,15 +68,12 @@ final class ForelightModel: ObservableObject {
     @Published var spotlightFeather: Double
     @Published var cutoutRadius: Double
     @Published var cutoutPadding: Double
-    @Published var dimTint: DimTint
+    @Published var tintRed: Double
+    @Published var tintGreen: Double
+    @Published var tintBlue: Double
     @Published var cutoutAllWindows: Bool
     @Published var cutoutAnimationDuration: Double
     @Published var vignetteStrength: Double
-    @Published var blurEnabled: Bool
-    @Published var blurTintRed: Double
-    @Published var blurTintGreen: Double
-    @Published var blurTintBlue: Double
-    @Published var blurTintAlpha: Double
     @Published var rules: [Rule]
     @Published var activeRuleID: UUID?
 
@@ -106,15 +103,12 @@ final class ForelightModel: ObservableObject {
         spotlightFeather: Double,
         cutoutRadius: Double,
         cutoutPadding: Double,
-        dimTint: DimTint,
+        tintRed: Double,
+        tintGreen: Double,
+        tintBlue: Double,
         cutoutAllWindows: Bool,
         cutoutAnimationDuration: Double,
         vignetteStrength: Double,
-        blurEnabled: Bool,
-        blurTintRed: Double,
-        blurTintGreen: Double,
-        blurTintBlue: Double,
-        blurTintAlpha: Double,
         rules: [Rule],
         activeRuleID: UUID?
     ) {
@@ -143,15 +137,12 @@ final class ForelightModel: ObservableObject {
         self.spotlightFeather = spotlightFeather
         self.cutoutRadius = cutoutRadius
         self.cutoutPadding = cutoutPadding
-        self.dimTint = dimTint
+        self.tintRed = tintRed
+        self.tintGreen = tintGreen
+        self.tintBlue = tintBlue
         self.cutoutAllWindows = cutoutAllWindows
         self.cutoutAnimationDuration = cutoutAnimationDuration
         self.vignetteStrength = vignetteStrength
-        self.blurEnabled = blurEnabled
-        self.blurTintRed = blurTintRed
-        self.blurTintGreen = blurTintGreen
-        self.blurTintBlue = blurTintBlue
-        self.blurTintAlpha = blurTintAlpha
         self.rules = rules
         self.activeRuleID = activeRuleID
     }

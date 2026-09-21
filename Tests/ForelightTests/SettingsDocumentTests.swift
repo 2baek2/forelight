@@ -20,7 +20,9 @@ struct SettingsDocumentTests {
         document.spotlightFeather = 30
         document.cutoutRadius = 12
         document.cutoutPadding = 6
-        document.dimTint = "warm"
+        document.tintRed = 0.11
+        document.tintGreen = 0.05
+        document.tintBlue = 0.0
         document.focusGroups = [
             FocusGroup(name: "Coding", intensity: 0.4, exceptions: [:], appIntensities: [:], appIntensityEnabled: [:])
         ]
