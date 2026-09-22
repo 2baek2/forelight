@@ -48,6 +48,30 @@ open "forelight://toggle"
 
 The URL scheme supports `toggle`, `enable`, `disable`, `snooze?minutes=`, `resume`, `intensity?value=`, `appearance?mode=`, `spotlight?mode=`, and `group?name=`.
 
+## Release without a Developer ID
+
+Release builds are ad-hoc signed, so macOS blocks the first launch. Build the
+artifacts with:
+
+```sh
+./scripts/release.sh          # uses the version from Resources/Info.plist
+./scripts/release.sh 0.2.0    # or pass a version
+```
+
+This writes `dist/Forelight-<version>.dmg` and `dist/Forelight-<version>.zip`.
+After dragging Forelight to Applications, clear the quarantine flag:
+
+```sh
+xattr -dr com.apple.quarantine /Applications/Forelight.app
+```
+
+Or right-click the app, choose **Open**, then **Open** again. Then grant
+Accessibility permission when Forelight asks.
+
+If you later get an Apple Developer ID, pass it to sign and notarize normally:
+`FORELIGHT_SIGNING_IDENTITY="Developer ID Application: …" ./scripts/release.sh`.
+
+
 macOS Accessibility permission is associated with the app's Bundle ID and code-signing identity, not just the app name. The build script keeps the Bundle ID as `com.forelight.app` and signs with the installed `Local Self-Signed` identity by default, so replacing the app on this Mac keeps the same identity. If you use an Apple Developer signing identity, pass it explicitly:
 
 ```sh
