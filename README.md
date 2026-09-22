@@ -21,7 +21,8 @@ Forelight is a small macOS menu bar utility that keeps the frontmost window clea
 - Dark, light, or system appearance
 - Optional launch at login
 - Steps aside while Mission Control, App Exposé, Launchpad, or Show Desktop is open
-- Automatic refresh after app activation, mouse clicks, display changes, and window changes
+- Automatic refresh after app activation, mouse clicks, display changes, and window changes, with an adaptive cadence that backs off while idle
+- Rebuilds overlays after display sleep or wake, and falls back to CoreGraphics if Accessibility is revoked while running
 - Accessibility-based movement and resize tracking, with CoreGraphics polling as a fallback
 
 ## Run

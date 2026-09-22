@@ -135,6 +135,8 @@ final class OverlayController {
     private var refreshTimer: Timer?
     private var activationObserver: NSObjectProtocol?
     private var spaceObserver: NSObjectProtocol?
+    private var screenSleepObserver: NSObjectProtocol?
+    private var screenWakeObserver: NSObjectProtocol?
     private var mouseObservers: [Any] = []
     private var axObserver: AXObserver?
     private var axApplication: AXUIElement?
@@ -295,17 +297,29 @@ final class OverlayController {
             }
         }
 
-        addMouseObservers()
-        attachToFrontmostApplication()
-
-        refreshTimer = Timer.scheduledTimer(withTimeInterval: 0.20, repeats: true) { [weak self] _ in
+        screenSleepObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.screensDidSleepNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
             Task { @MainActor [weak self] in
-                self?.attachToFrontmostApplication()
-                self?.refresh()
-                self?.evaluateRules()
+                self?.handleScreensSleeping()
             }
         }
 
+        screenWakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.screensDidWakeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.handleScreensWaking()
+            }
+        }
+
+        addMouseObservers()
+        attachToFrontmostApplication()
+        scheduleRefresh()
         updateSpotlightTimer()
     }
 
@@ -320,8 +334,16 @@ final class OverlayController {
         if let spaceObserver {
             NSWorkspace.shared.notificationCenter.removeObserver(spaceObserver)
         }
+        if let screenSleepObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(screenSleepObserver)
+        }
+        if let screenWakeObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(screenWakeObserver)
+        }
         activationObserver = nil
         spaceObserver = nil
+        screenSleepObserver = nil
+        screenWakeObserver = nil
         mouseObservers.forEach { NSEvent.removeMonitor($0) }
         mouseObservers.removeAll()
         removeAXObserver()
@@ -331,6 +353,45 @@ final class OverlayController {
         dragRestoreWorkItem = nil
         overlays.forEach { $0.hideImmediately() }
         overlays.removeAll()
+    }
+
+    // MARK: - Refresh cadence and sleep
+
+    private func scheduleRefresh() {
+        refreshTimer?.invalidate()
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: nextRefreshInterval(), repeats: false) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.attachToFrontmostApplication()
+                self.refresh()
+                self.evaluateRules()
+                self.scheduleRefresh()
+            }
+        }
+    }
+
+    /// Polls faster while the user is active and backs off when idle to save
+    /// power. Window changes still arrive through the accessibility observer.
+    private func nextRefreshInterval() -> TimeInterval {
+        if isDraggingWindow || mouseButtonDown {
+            return 0.1
+        }
+        let idle = RuleContextProvider.idleSeconds()
+        if idle < 5 { return 0.2 }
+        if idle < 60 { return 0.5 }
+        return 1.0
+    }
+
+    private func handleScreensSleeping() {
+        overlays.forEach { $0.hideImmediately() }
+        spotlightTimer?.invalidate()
+        spotlightTimer = nil
+    }
+
+    private func handleScreensWaking() {
+        rebuildOverlays()
+        updateSpotlightTimer()
+        refresh()
     }
 
     func setEnabled(_ enabled: Bool) {
@@ -878,6 +939,12 @@ final class OverlayController {
     private func refresh() {
         guard isEnabled else { return }
 
+        // If Accessibility was revoked while running, drop the observer and keep
+        // going with the CoreGraphics fallback.
+        if axObserver != nil, !AXIsProcessTrusted() {
+            removeAXObserver()
+        }
+
         if let until = snoozeUntil, Date() >= until {
             snoozeUntil = nil
         }
@@ -914,8 +981,21 @@ final class OverlayController {
                 continue
             }
 
+            let frames = cutouts(for: overlay)
+            if frames.contains(where: { frame in
+                frame.minX <= overlay.frame.minX + 4 &&
+                frame.minY <= overlay.frame.minY + 4 &&
+                frame.width >= overlay.frame.width * 0.995 &&
+                frame.height >= overlay.frame.height * 0.995
+            }) {
+                // The focused content fills the screen, so there is nothing to
+                // dim: skip compositing entirely (full screen apps).
+                overlay.hideImmediately()
+                continue
+            }
+
             overlay.update(
-                cutouts: cutouts(for: overlay),
+                cutouts: frames,
                 alpha: resolvedIntensity(for: overlay.targetScreen),
                 style: dimStyle,
                 animationDuration: cutoutAnimationDuration
