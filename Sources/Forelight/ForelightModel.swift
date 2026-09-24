@@ -76,6 +76,9 @@ final class ForelightModel: ObservableObject {
     @Published var vignetteStrength: Double
     @Published var rules: [Rule]
     @Published var activeRuleID: UUID?
+    @Published var isCheckingForUpdates: Bool
+    @Published var availableUpdateVersion: String?
+    @Published var autoCheckForUpdates: Bool
 
     init(
         isEnabled: Bool,
@@ -110,7 +113,10 @@ final class ForelightModel: ObservableObject {
         cutoutAnimationDuration: Double,
         vignetteStrength: Double,
         rules: [Rule],
-        activeRuleID: UUID?
+        activeRuleID: UUID?,
+        isCheckingForUpdates: Bool,
+        availableUpdateVersion: String?,
+        autoCheckForUpdates: Bool
     ) {
         self.isEnabled = isEnabled
         self.currentApplicationName = currentApplicationName
@@ -145,5 +151,8 @@ final class ForelightModel: ObservableObject {
         self.vignetteStrength = vignetteStrength
         self.rules = rules
         self.activeRuleID = activeRuleID
+        self.isCheckingForUpdates = isCheckingForUpdates
+        self.availableUpdateVersion = availableUpdateVersion
+        self.autoCheckForUpdates = autoCheckForUpdates
     }
 }

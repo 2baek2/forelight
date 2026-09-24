@@ -269,6 +269,8 @@ struct SettingsView: View {
     let onResetSettings: () -> Void
     let onShowOnboarding: () -> Void
     let onShowAbout: () -> Void
+    let onCheckForUpdates: () -> Void
+    let onSetAutoCheckForUpdates: (Bool) -> Void
     let onOpenAccessibilitySettings: () -> Void
 
     @State private var selectedSection: Section = .general
@@ -345,6 +347,17 @@ struct SettingsView: View {
 
     private func syncTintState() {
         tintColorState = Color(red: model.tintRed, green: model.tintGreen, blue: model.tintBlue)
+    }
+
+    private static var appShortVersion: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.0"
+    }
+
+    private var updateSubtitle: String {
+        if let version = model.availableUpdateVersion {
+            return "Version \(version) is available"
+        }
+        return "Forelight \(Self.appShortVersion)"
     }
 
     @ViewBuilder
@@ -1004,6 +1017,37 @@ struct SettingsView: View {
                         Button("Reset…", action: onResetSettings)
                             .buttonStyle(.bordered)
                             .controlSize(.small)
+                    }
+                }
+
+                Card {
+                    CardRow(
+                        title: "Check for Updates",
+                        subtitle: updateSubtitle,
+                        systemImage: "arrow.triangle.2.circlepath"
+                    ) {
+                        if model.isCheckingForUpdates {
+                            ProgressView()
+                                .controlSize(.small)
+                        } else {
+                            Button("Check Now", action: onCheckForUpdates)
+                                .buttonStyle(.bordered)
+                                .controlSize(.small)
+                        }
+                    }
+                    CardDivider()
+                    CardRow(
+                        title: "Check automatically",
+                        subtitle: "Once a day, on launch",
+                        systemImage: "clock"
+                    ) {
+                        Toggle("", isOn: Binding(
+                            get: { model.autoCheckForUpdates },
+                            set: { value in onSetAutoCheckForUpdates(value) }
+                        ))
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                        .controlSize(.small)
                     }
                 }
 

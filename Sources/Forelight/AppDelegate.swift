@@ -18,6 +18,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var enabled: Bool
     private var appearanceMode: AppearanceMode
     private var shortcut: KeyCombo
+    private var autoCheckForUpdates: Bool
+    private var isCheckingForUpdates = false
+    private var availableUpdateVersion: String?
     private let shortcutGate = ShortcutGate()
     private var activationObserver: NSObjectProtocol?
     private var terminationObserver: NSObjectProtocol?
@@ -36,6 +39,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         } else {
             shortcut = .default
         }
+        autoCheckForUpdates = UserDefaults.standard.object(forKey: ForelightSettings.autoCheckForUpdatesKey) as? Bool ?? true
         model = ForelightModel(
             isEnabled: enabled,
             currentApplicationName: nil,
@@ -69,7 +73,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             cutoutAnimationDuration: controller.cutoutAnimationDuration,
             vignetteStrength: controller.vignetteStrength,
             rules: controller.rules,
-            activeRuleID: nil
+            activeRuleID: nil,
+            isCheckingForUpdates: false,
+            availableUpdateVersion: nil,
+            autoCheckForUpdates: autoCheckForUpdates
         )
         super.init()
     }
@@ -86,6 +93,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         overlayController.setEnabled(enabled)
         refreshUI()
         showOnboardingIfNeeded()
+        scheduleAutomaticUpdateCheck()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -410,6 +418,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         setupItem.target = self
         menu.addItem(setupItem)
 
+        let updatesItem = NSMenuItem(title: "Check for Updates…", action: #selector(checkForUpdatesFromMenu), keyEquivalent: "")
+        updatesItem.target = self
+        menu.addItem(updatesItem)
+
         let supportItem = NSMenuItem(title: "Support Forelight…", action: #selector(openSupportFromMenu), keyEquivalent: "")
         supportItem.target = self
         menu.addItem(supportItem)
@@ -479,6 +491,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         NSWorkspace.shared.open(ForelightLinks.support)
     }
 
+    @objc private func checkForUpdatesFromMenu() {
+        checkForUpdates(userInitiated: true)
+    }
+
     @objc private func quitFromMenu() {
         NSApp.terminate(nil)
     }
@@ -527,6 +543,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         model.vignetteStrength = overlayController.vignetteStrength
         model.rules = overlayController.rules
         model.activeRuleID = overlayController.activeRuleID
+        model.isCheckingForUpdates = isCheckingForUpdates
+        model.availableUpdateVersion = availableUpdateVersion
+        model.autoCheckForUpdates = autoCheckForUpdates
         model.displays = NSScreen.screens.compactMap { screen -> DisplayIntensityEntry? in
             guard let info = DisplayIdentifier.info(for: screen) else { return nil }
             return DisplayIntensityEntry(
@@ -804,6 +823,105 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let short = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.0"
         let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "0"
         return "\(short) (\(build))"
+    }
+
+    private static var appShortVersion: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.0"
+    }
+
+    // MARK: - Updates
+
+    private func checkForUpdates(userInitiated: Bool) {
+        guard !isCheckingForUpdates else { return }
+        isCheckingForUpdates = true
+        syncModel()
+
+        Task { @MainActor in
+            defer {
+                isCheckingForUpdates = false
+                UserDefaults.standard.set(Date(), forKey: ForelightSettings.lastUpdateCheckKey)
+                syncModel()
+            }
+
+            do {
+                let release = try await UpdateChecker.latestRelease()
+                if UpdateChecker.isNewer(release.version, than: Self.appShortVersion) {
+                    availableUpdateVersion = release.version
+                    let offered = UserDefaults.standard.string(forKey: ForelightSettings.offeredUpdateVersionKey)
+                    if userInitiated || offered != release.version {
+                        UserDefaults.standard.set(release.version, forKey: ForelightSettings.offeredUpdateVersionKey)
+                        presentUpdateAlert(release)
+                    }
+                } else {
+                    availableUpdateVersion = nil
+                    if userInitiated {
+                        presentSimpleAlert(
+                            title: "You're up to date",
+                            message: "Forelight \(Self.appShortVersion) is the latest version."
+                        )
+                    }
+                }
+            } catch {
+                if userInitiated {
+                    presentSimpleAlert(title: "Update Check Failed", message: error.localizedDescription)
+                }
+            }
+        }
+    }
+
+    private func presentUpdateAlert(_ release: ReleaseInfo) {
+        let alert = NSAlert()
+        alert.messageText = "Forelight \(release.version) is available"
+        var informative = "You are running \(Self.appShortVersion)."
+        if let notes = release.notes, !notes.isEmpty {
+            informative += "\n\n" + notes.prefix(600)
+        }
+        alert.informativeText = informative
+        alert.addButton(withTitle: release.dmgURL != nil ? "Download" : "Open Release")
+        alert.addButton(withTitle: "Release Notes")
+        alert.addButton(withTitle: "Later")
+
+        switch alert.runModal() {
+        case .alertFirstButtonReturn:
+            if let dmgURL = release.dmgURL {
+                downloadAndOpen(dmgURL)
+            } else {
+                NSWorkspace.shared.open(release.pageURL)
+            }
+        case .alertSecondButtonReturn:
+            NSWorkspace.shared.open(release.pageURL)
+        default:
+            break
+        }
+    }
+
+    private func downloadAndOpen(_ url: URL) {
+        Task { @MainActor in
+            do {
+                let file = try await UpdateChecker.download(url)
+                NSWorkspace.shared.open(file)
+            } catch {
+                presentSimpleAlert(title: "Download Failed", message: error.localizedDescription)
+            }
+        }
+    }
+
+    private func setAutoCheckForUpdates(_ value: Bool) {
+        autoCheckForUpdates = value
+        UserDefaults.standard.set(value, forKey: ForelightSettings.autoCheckForUpdatesKey)
+        syncModel()
+    }
+
+    /// Checks at most once a day, shortly after launch.
+    private func scheduleAutomaticUpdateCheck() {
+        guard autoCheckForUpdates else { return }
+        if let last = UserDefaults.standard.object(forKey: ForelightSettings.lastUpdateCheckKey) as? Date,
+           Date().timeIntervalSince(last) < 60 * 60 * 24 {
+            return
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [weak self] in
+            self?.checkForUpdates(userInitiated: false)
+        }
     }
 
     private func showAbout() {
@@ -1134,6 +1252,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                     onResetSettings: { [weak self] in self?.resetSettings() },
                     onShowOnboarding: { [weak self] in self?.showOnboarding() },
                     onShowAbout: { [weak self] in self?.showAbout() },
+                    onCheckForUpdates: { [weak self] in self?.checkForUpdates(userInitiated: true) },
+                    onSetAutoCheckForUpdates: { [weak self] value in self?.setAutoCheckForUpdates(value) },
                     onOpenAccessibilitySettings: { [weak self] in self?.overlayController.openAccessibilitySettings() }
                 )
             )

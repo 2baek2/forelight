@@ -29,6 +29,9 @@ enum ForelightSettings {
     static let rulesKey = "rules"
     static let focusGroupsKey = "focusGroups"
     static let hasCompletedOnboardingKey = "hasCompletedOnboarding"
+    static let autoCheckForUpdatesKey = "autoCheckForUpdates"
+    static let lastUpdateCheckKey = "lastUpdateCheck"
+    static let offeredUpdateVersionKey = "offeredUpdateVersion"
     static let intensityRange: ClosedRange<Double> = 0.10...0.90
     static let spotlightRadiusRange: ClosedRange<Double> = 40...400
     static let spotlightFeatherRange: ClosedRange<Double> = 0...160

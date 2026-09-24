@@ -53,6 +53,7 @@ paid tiers.
   group, snooze, or set the spotlight
 - Timed snooze and a recordable global shortcut
 - `forelight://` URL scheme and a `forelight-cli` helper
+- Update check against the GitHub releases, with an optional daily check
 
 **Under the hood**
 
@@ -110,7 +111,7 @@ cursor spotlight, focus groups, settings, setup, support, and quit.
 | Displays | Per-display intensity and dimming on/off |
 | Groups | Saved setups, with an optional shortcut each |
 | Rules | Automatic actions when conditions match |
-| Advanced | Accessibility, setup, About, export/import/reset, support |
+| Advanced | Accessibility, setup, About, updates, export/import/reset, support |
 
 ### Global shortcut
 
@@ -160,12 +161,21 @@ For example:
 - Apply the "Coding" group when Xcode is in front.
 - Lower the intensity on battery.
 
+### Updates
+
+Forelight checks the public GitHub releases. Use **Check for Updates…** in the
+status menu or Settings → Advanced, or let it check once a day on launch. When a
+newer version exists you can download the DMG and open it, then drag it to
+Applications. Updates are not installed in place because the builds are not
+notarized.
+
 ## Settings and data
 
 - Everything is stored locally in `UserDefaults` for `com.forelight.app`. No
-  account, no telemetry, and no network requests.
+  account, no telemetry. Forelight installs nothing else and needs no admin rights.
+- The only network request is the optional update check (Settings → Advanced,
+  once a day on launch by default), which reads the public GitHub releases.
 - Export and Import under Settings → Advanced write a JSON snapshot; Reset clears it.
-- Forelight installs nothing else and needs no admin rights.
 
 ## Development
 
