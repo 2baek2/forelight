@@ -201,17 +201,46 @@ git tag -a v0.2.0 -m "Forelight 0.2.0"
 git push origin main --tags       # GitHub Actions attaches the DMG and zip
 ```
 
-`release.sh` signs with `Local Self-Signed` when that identity exists, otherwise
-ad-hoc. A stable certificate keeps the Accessibility grant across updates, so the
-in-app updater does not ask for permission again after an update. To use a
-different identity (a dedicated `Forelight` certificate, or a Developer ID), pass
-`FORELIGHT_SIGNING_IDENTITY="…"`.
+### Keeping Accessibility permission across updates
 
-For GitHub Actions, export the certificate as a `.p12`, base64 it, and add these
-repository secrets: `MACOS_SIGNING_P12`, `MACOS_SIGNING_P12_PASSWORD`,
-`MACOS_KEYCHAIN_PASSWORD`, and `MACOS_SIGNING_IDENTITY`. Without them the workflow
-signs ad-hoc. To create the certificate: Keychain Access → Certificate Assistant
-→ Create a Certificate…, type **Code Signing**, for example named `Forelight`.
+macOS ties an Accessibility grant to the app's code signature. Forelight signs
+every release with one stable certificate so the grant survives updates:
+
+```
+designated => identifier "com.forelight.app" and certificate leaf = H"…"
+```
+
+That requirement is identical for every build signed with the same certificate,
+so a user who grants permission once is not asked again after an update. An
+ad-hoc signature changes on every build, which is why it would ask again.
+
+Create a dedicated certificate once:
+
+1. **키체인 접근** → **인증서 지원** → **인증서 생성…**
+   (Keychain Access → Certificate Assistant → Create a Certificate…)
+2. Name it `Forelight`, choose **코드 서명** (Code Signing), and create a
+   self-signed certificate.
+3. On the **인증서 정보** (Certificate Information) screen set **유효 기간(일)**
+   (Validity Period) to a long value such as `3650` days.
+4. Export it as a `.p12` and keep a backup; it is the signing identity for every
+   release.
+
+Then sign releases with it:
+
+```sh
+FORELIGHT_SIGNING_IDENTITY="Forelight" ./scripts/release.sh 0.2.0
+```
+
+`release.sh` prefers `FORELIGHT_SIGNING_IDENTITY`, then `Local Self-Signed`, then
+ad-hoc, and adds a **secure timestamp** so the signature stays valid even after
+the certificate expires.
+
+For GitHub Actions, base64 the `.p12` and add these repository secrets:
+`MACOS_SIGNING_P12`, `MACOS_SIGNING_P12_PASSWORD`, `MACOS_KEYCHAIN_PASSWORD`, and
+`MACOS_SIGNING_IDENTITY`. Without them the workflow signs ad-hoc.
+
+Note: changing the certificate (or shipping an ad-hoc build) changes the
+signature, and users will be asked to grant Accessibility again.
 
 ## Permissions and troubleshooting
 

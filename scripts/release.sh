@@ -48,7 +48,12 @@ AVAILABLE_IDENTITIES="$(security find-identity -v -p codesigning 2>/dev/null || 
 
 if [[ -n "$IDENTITY" ]] && [[ "$AVAILABLE_IDENTITIES" == *"\"$IDENTITY\""* ]]; then
     echo "Signing with: $IDENTITY"
-    codesign --force --sign "$IDENTITY" "$APP_PATH"
+    # A secure timestamp keeps the signature valid after the certificate expires,
+    # so a self-signed certificate that lapses does not invalidate installs.
+    if ! codesign --force --timestamp --sign "$IDENTITY" "$APP_PATH"; then
+        echo "Timestamping failed (offline?); signing without a timestamp."
+        codesign --force --sign "$IDENTITY" "$APP_PATH"
+    fi
 else
     echo "Signing identity \"$IDENTITY\" not found; signing ad-hoc."
     echo "Tip: a stable certificate keeps the Accessibility grant across updates."
