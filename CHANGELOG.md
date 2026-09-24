@@ -12,6 +12,9 @@
   even after the certificate expires. `scripts/make-signing-cert.sh` creates a
   `Forelight` certificate (or reuses one), trusts it, and exports a `.p12` for
   CI; `release.sh` prefers it automatically.
+- Document the first-launch approval on macOS 15 and later, where the
+  Control-click shortcut no longer works, and note that the signing certificate
+  only has to exist where releases are built.
 
 ## 0.1.0
 

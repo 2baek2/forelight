@@ -73,14 +73,25 @@ paid tiers.
 
 1. Get the DMG from the [latest release](https://github.com/2baek2/forelight/releases/latest).
 2. Drag Forelight to Applications.
-3. The build is not notarized, so clear the quarantine flag once:
+3. The build is not notarized, so macOS blocks the first launch. Allow it once:
 
-   ```sh
-   xattr -dr com.apple.quarantine /Applications/Forelight.app
-   ```
+   - **macOS 15 and later** (the Control-click shortcut no longer works):
+     double-click Forelight and dismiss the warning, then open **시스템 설정 →
+     개인정보 보호 및 보안** (System Settings → Privacy & Security), scroll
+     down, and click **확인 없이 열기** (Open Anyway). Confirm with Touch ID or
+     your password.
+   - **macOS 14 and earlier:** right-click the app, choose **Open**, then
+     **Open** again.
+   - Or clear the quarantine flag from the terminal:
 
-   Or right-click the app, choose **Open**, then **Open** again.
+     ```sh
+     xattr -dr com.apple.quarantine /Applications/Forelight.app
+     ```
 4. Grant Accessibility permission when Forelight asks.
+
+This is a one-time step. The app installs updates itself and clears the quarantine
+flag on the replacement, so the prompt does not come back, and the Accessibility
+grant is kept because every release is signed with the same certificate.
 
 ### Build from source
 
@@ -285,11 +296,20 @@ and to power the global shortcut. Without it, Forelight falls back to CoreGraphi
 polling, which is slightly less precise. Everything stays on your Mac.
 
 **"Forelight is damaged" or a Gatekeeper warning.** The build is not notarized, so
-clear the quarantine flag once:
+the first launch is blocked. On macOS 15 and later, open **System Settings →
+Privacy & Security** and click **Open Anyway** (the Control-click shortcut was
+removed); on earlier versions, right-click the app and choose **Open**. Or clear
+the quarantine flag once:
 
 ```sh
 xattr -dr com.apple.quarantine /Applications/Forelight.app
 ```
+
+**Does it work for other people?** Yes. The certificate does not need to be
+installed on anyone else's Mac: the requirement is matched against the certificate
+inside the app's signature, so Accessibility is granted once and kept across
+updates on every Mac. The only per-user step is the first-launch Gatekeeper
+approval above.
 
 **Accessibility stops working after a rebuild.** macOS ties the grant to the
 bundle ID and code signature. Keep the same signing identity

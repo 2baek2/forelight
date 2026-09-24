@@ -1,9 +1,8 @@
 import AppKit
 import Foundation
 
-/// Installs an update in place. Because the builds are ad-hoc signed (not
-/// notarized), Forelight replaces its own bundle and relaunches instead of using
-/// a framework updater.
+/// Installs an update in place. Because the builds are not notarized, Forelight
+/// replaces its own bundle and relaunches instead of using a framework updater.
 enum UpdateInstaller {
     /// Downloads and unpacks a release zip, returning the new .app in a temp dir.
     static func download(_ url: URL) async throws -> URL {

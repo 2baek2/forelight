@@ -49,12 +49,15 @@ jobs:
             dist/*.dmg
             dist/*.zip
           body: |
-            Download the DMG, drag Forelight to Applications, then clear the
-            quarantine flag (the build is not notarized):
+            Download the DMG, drag Forelight to Applications, then allow the
+            first launch (the build is not notarized):
 
-            ```sh
-            xattr -dr com.apple.quarantine /Applications/Forelight.app
-            ```
+            - macOS 15+: double-click, dismiss the warning, then open
+              System Settings → Privacy & Security, scroll down, and click
+              "Open Anyway".
+            - macOS 14 and earlier: right-click the app, choose Open, then Open.
+            - Or run: xattr -dr com.apple.quarantine /Applications/Forelight.app
 
-            Or right-click the app, choose **Open**, then **Open** again. Grant
-            Accessibility permission when Forelight asks.
+            Grant Accessibility permission when Forelight asks. Updates install
+            in place and keep that grant, because every release is signed with
+            the same certificate.
