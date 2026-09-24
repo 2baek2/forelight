@@ -409,6 +409,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let setupItem = NSMenuItem(title: "Setup…", action: #selector(showOnboardingFromMenu), keyEquivalent: "")
         setupItem.target = self
         menu.addItem(setupItem)
+
+        let supportItem = NSMenuItem(title: "Support Forelight…", action: #selector(openSupportFromMenu), keyEquivalent: "")
+        supportItem.target = self
+        menu.addItem(supportItem)
         menu.addItem(.separator())
 
         let quitItem = NSMenuItem(
@@ -469,6 +473,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     @objc private func showOnboardingFromMenu() {
         showOnboarding()
+    }
+
+    @objc private func openSupportFromMenu() {
+        NSWorkspace.shared.open(ForelightLinks.support)
     }
 
     @objc private func quitFromMenu() {
@@ -801,7 +809,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private func showAbout() {
         if aboutWindow == nil {
             let window = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 380, height: 320),
+                contentRect: NSRect(x: 0, y: 0, width: 380, height: 340),
                 styleMask: [.titled, .closable],
                 backing: .buffered,
                 defer: false

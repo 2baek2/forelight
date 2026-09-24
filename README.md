@@ -2,6 +2,8 @@
 
 Forelight is a small macOS menu bar utility that keeps the frontmost window clear and fades everything else.
 
+If it helps you, you can [buy me a coffee](https://buymeacoffee.com/s5010749300). Forelight is free and has no paid tiers.
+
 ## MVP
 
 - Active-window cutout on every connected display
@@ -86,4 +88,13 @@ Click the menu bar icon to open the compact control panel. It shows the current 
 
 Open `Settings…` for the sidebar settings window. It contains focus behavior, window-movement animation timing, app exceptions, and Accessibility permission status. Under `General`, click the shortcut field and press a new key combination to change the global toggle shortcut; the default is `⌥⌘F`. Under `Exceptions`, the excluded apps are listed with a toggle each; use `+` to add apps and `−` to remove the selected one. Toggling an app off keeps it in the list without excluding it. Under `Advanced`, revisit setup, open the About window, and export, import, or reset your settings.
 
-The app uses public AppKit, Application Services, NSWorkspace, and CoreGraphics APIs. Focus Groups are stored locally; deeper automation rules are the next step.
+The app uses public AppKit, Application Services, NSWorkspace, and CoreGraphics APIs. Everything runs locally; nothing leaves your Mac.
+
+## Support
+
+Forelight is free, with no paid tiers or feature locks. If it is useful to you, you can
+[buy me a coffee](https://buymeacoffee.com/s5010749300).
+
+## License
+
+MIT — see [LICENSE](LICENSE).

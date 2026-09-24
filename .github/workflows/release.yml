@@ -1,0 +1,27 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    # Forelight needs Swift 6.2 (Xcode 26). Bump this runner or select a newer
+    # Xcode if the build fails on the default toolchain.
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build DMG and zip
+        run: ./scripts/release.sh "${GITHUB_REF_NAME#v}"
+
+      - name: Publish release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.dmg
+            dist/*.zip

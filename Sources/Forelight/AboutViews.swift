@@ -27,18 +27,28 @@ struct AboutView: View {
 
             Spacer(minLength: 0)
 
-            HStack {
-                Button("Settings…", action: onOpenSettings)
-                    .buttonStyle(.bordered)
-                Spacer()
-                Button("Quit Forelight") {
-                    NSApplication.shared.terminate(nil)
+            VStack(spacing: 8) {
+                Button {
+                    NSWorkspace.shared.open(ForelightLinks.support)
+                } label: {
+                    Label("Support Forelight", systemImage: "heart.fill")
+                        .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.borderedProminent)
+
+                HStack {
+                    Button("Settings…", action: onOpenSettings)
+                        .buttonStyle(.bordered)
+                    Spacer()
+                    Button("Quit Forelight") {
+                        NSApplication.shared.terminate(nil)
+                    }
+                    .buttonStyle(.bordered)
+                }
             }
         }
         .padding(24)
-        .frame(width: 340, height: 300)
+        .frame(width: 380, height: 340)
         .background(ForelightStyle.windowBackground)
         .tint(ForelightStyle.accent)
     }

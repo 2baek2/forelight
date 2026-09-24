@@ -1006,6 +1006,20 @@ struct SettingsView: View {
                             .controlSize(.small)
                     }
                 }
+
+                Card {
+                    CardRow(
+                        title: "Support Forelight",
+                        subtitle: "If it helps you, you can buy me a coffee",
+                        systemImage: "heart"
+                    ) {
+                        Button("Support") {
+                            NSWorkspace.shared.open(ForelightLinks.support)
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    }
+                }
             }
         }
     }
