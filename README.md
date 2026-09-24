@@ -191,7 +191,7 @@ Layout:
 - `Sources/ForelightCLI` — the `forelight-cli` helper
 - `Tests/ForelightTests` — unit tests
 - `Resources` — `Info.plist` and the app icon
-- `scripts` — build, icon generation, and release scripts
+- `scripts` — build, signing certificate, icon generation, and release scripts
 
 ## Releasing
 
@@ -264,12 +264,15 @@ For GitHub Actions, the script writes the identity to
 `dist/signing/Forelight.p12` (git-ignored) and prints the values to add as
 repository secrets: `MACOS_SIGNING_IDENTITY`, `MACOS_SIGNING_P12` (the base64 of
 that `.p12`), `MACOS_SIGNING_P12_PASSWORD`, and `MACOS_KEYCHAIN_PASSWORD` (any
-throwaway password). The workflow imports it into a temporary keychain and runs
-`security set-key-partition-list`, which is required so `codesign` can use the key
-without prompting. Without the secrets the workflow signs ad-hoc.
+throwaway password). If the certificate already exists, the script exports it with
+`scripts/export-signing-identity.swift`, so there is no GUI step. The workflow
+imports the `.p12` into a temporary keychain and runs `security set-key-partition-list`,
+which is required so `codesign` can use the key without prompting. Without the
+secrets the workflow signs ad-hoc.
 
-If the certificate already exists (created by hand), export it once from Keychain
-Access: right-click it, choose **내보내기…** (Export…), and save the `.p12`.
+```sh
+base64 -i dist/signing/Forelight.p12 | pbcopy   # paste into MACOS_SIGNING_P12
+```
 
 Use the *same* `.p12` in CI as locally. Changing the certificate, or shipping an
 ad-hoc build, changes the signature, and users are asked to grant Accessibility

@@ -21,13 +21,11 @@ set -euo pipefail
 
 NAME="${1:-Forelight}"
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-KEYCHAIN="$HOME/Library/Keychains/login.keychain-db"
+KEYCHAIN="${FORELIGHT_KEYCHAIN:-$HOME/Library/Keychains/login.keychain-db}"
 EXPORT_DIR="$ROOT_DIR/dist/signing"
 EXPORT_P12="$EXPORT_DIR/$NAME.p12"
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "$WORK_DIR"' EXIT
-
-P12_PASSWORD="${FORELIGHT_P12_PASSWORD:-}"
 
 print_usage_help() {
     echo
@@ -45,23 +43,33 @@ print_usage_help() {
     echo "and users must grant Accessibility again."
 }
 
+trust_if_needed() {
+    if security verify-cert -c "$WORK_DIR/cert.pem" -p codeSign >/dev/null 2>&1; then
+        return
+    fi
+    echo "Trusting it for code signing (macOS may ask for your password)…"
+    security add-trusted-cert -r trustRoot -p codeSign -k "$KEYCHAIN" "$WORK_DIR/cert.pem"
+}
+
 if security find-certificate -c "$NAME" >/dev/null 2>&1; then
     echo "Certificate \"$NAME\" already exists; reusing it."
     security find-certificate -c "$NAME" -p > "$WORK_DIR/cert.pem"
-
-    if ! security verify-cert -c "$WORK_DIR/cert.pem" -p codeSign >/dev/null 2>&1; then
-        echo "Trusting it for code signing (macOS may ask for your password)…"
-        security add-trusted-cert -r trustRoot -p codeSign -k "$KEYCHAIN" "$WORK_DIR/cert.pem"
-    fi
+    trust_if_needed
 
     if [[ -f "$EXPORT_P12" ]]; then
         echo "Reusing exported identity: $EXPORT_P12"
     else
-        echo
-        echo "It has no exported .p12 yet. Export it once for CI secrets:"
-        echo "  키체인 접근 → login → 인증서에서 \"$NAME\" 우클릭 → 내보내기…"
-        echo "  (Keychain Access → login → export \"$NAME\" as .p12)"
-        echo "  then: mkdir -p \"$(dirname "$EXPORT_P12")\" && mv ~/Desktop/*.p12 \"$EXPORT_P12\""
+        P12_PASSWORD="${FORELIGHT_P12_PASSWORD:-$(openssl rand -hex 16)}"
+        mkdir -p "$EXPORT_DIR"
+        echo "Exporting the identity to $EXPORT_P12…"
+        if swift "$ROOT_DIR/scripts/export-signing-identity.swift" "$NAME" "$EXPORT_P12" "$P12_PASSWORD"; then
+            echo "Exported identity: $EXPORT_P12 (git-ignored)"
+            echo "The .p12 password is: $P12_PASSWORD"
+        else
+            rm -f "$EXPORT_P12"
+            echo "Automatic export failed; export it by hand instead:"
+            echo "  키체인 접근 → login → 인증서 \"$NAME\" 우클릭 → 내보내기… (.p12)"
+        fi
     fi
 
     print_usage_help
@@ -82,13 +90,13 @@ else
         -in "$WORK_DIR/cert.pem" \
         -name "$NAME" \
         -out "$WORK_DIR/$NAME.p12" \
-        -passout "pass:$P12_PASSWORD"
+        -passout "pass:$P12_PASSWORD" \
+        -certpbe PBE-SHA1-3DES -keypbe PBE-SHA1-3DES -macalg sha1
 
-    echo "Importing into the login keychain…"
+    echo "Importing into $KEYCHAIN…"
     security import "$WORK_DIR/$NAME.p12" -k "$KEYCHAIN" -P "$P12_PASSWORD" -T /usr/bin/codesign
 
-    echo "Trusting it for code signing (macOS may ask for your password)…"
-    security add-trusted-cert -r trustRoot -p codeSign -k "$KEYCHAIN" "$WORK_DIR/cert.pem"
+    trust_if_needed
 
     mkdir -p "$EXPORT_DIR"
     cp "$WORK_DIR/$NAME.p12" "$EXPORT_P12"
@@ -97,5 +105,4 @@ else
     print_usage_help
     echo
     echo "The .p12 password is: $P12_PASSWORD"
-    exit 0
 fi
