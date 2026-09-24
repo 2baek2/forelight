@@ -4,100 +4,222 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 ![Platform](https://img.shields.io/badge/platform-macOS%2013%2B-lightgrey)
 
-Forelight is a small macOS menu bar utility that keeps the frontmost window clear and fades everything else.
+Forelight is a small macOS menu bar utility that keeps the frontmost window clear
+while everything else fades into the background. Free and open source, with no
+paid tiers.
 
-If it helps you, you can [buy me a coffee](https://buymeacoffee.com/s5010749300). Forelight is free and has no paid tiers.
+- [Features](#features)
+- [Requirements](#requirements)
+- [Install](#install)
+- [Usage](#usage)
+- [Automation](#automation)
+- [Settings and data](#settings-and-data)
+- [Development](#development)
+- [Releasing](#releasing)
+- [Permissions and troubleshooting](#permissions-and-troubleshooting)
+- [Support](#support)
+- [License](#license)
 
-## MVP
+## Features
 
-- Active-window cutout on every connected display
-- Menu bar panel with enabled state, current app, settings, and quit actions
-- Continuous dim-intensity slider with direct percentage input
-- Recordable global toggle shortcut (default `⌥⌘F`)
-- Optional hide-while-moving behavior with fade and restore timing controls
-- Per-app exceptions, persisted by Bundle ID, managed as a toggle list
-- Per-app dim intensity overrides (set from the panel or Settings → Apps), each with a toggle that keeps the entry but falls back to the global value
-- Per-display dim intensity overrides in Settings → Displays, where each screen also has a switch to skip dimming entirely (a display override wins over an app override)
-- Focus Groups: save the current intensity, exceptions, per-app, per-display, and spotlight settings and switch between them from Settings, the status menu, `forelight-cli group <name>`, or a shortcut assigned per group
-- Cursor spotlight: optionally light the area around the pointer instead of (or as well as) the focused window, with adjustable radius and soft edge
-- Dim style: a custom tint color (with black / warm / cool presets), cutout corner radius and padding, an optional vignette, cutout animation, and a switch to keep every window of the frontmost app clear
-- Rules: turn dimming on or off, set intensity, apply a group, snooze, or set the spotlight automatically when conditions match (frontmost app, time window, power source, external display, idle, microphone in use)
-- Timed snooze and a capture-safe overlay that stays out of screen recordings
-- `forelight://` URL scheme (toggle, snooze, intensity, appearance, spotlight, group) and a `forelight-cli` helper
-- Dark, light, or system appearance
-- Optional launch at login
-- Steps aside while Mission Control, App Exposé, Launchpad, or Show Desktop is open
-- Automatic refresh after app activation, mouse clicks, display changes, and window changes, with an adaptive cadence that backs off while idle
-- Rebuilds overlays after display sleep or wake, and falls back to CoreGraphics if Accessibility is revoked while running
-- Accessibility-based movement and resize tracking, with CoreGraphics polling as a fallback
+**Dimming**
 
-## Run
+- A clear cutout for the frontmost window on every connected display, or for
+  every window of the frontmost app
+- Continuous dim intensity (10–90%) with a slider and direct percentage input
+- Hide while moving, with fade and restore timing controls
+- Capture-safe: the dim layer never appears in screen recordings or shares
+- Steps aside for Mission Control, App Exposé, Launchpad, and Show Desktop
+
+**Per app and per display**
+
+- Exceptions: keep chosen apps clear, managed as a toggle list
+- Per-app intensity overrides, each with a toggle that falls back to the global value
+- Per-display intensity overrides, plus a switch to skip dimming on a screen entirely
+
+**Look**
+
+- Custom dim tint with black / warm / cool presets
+- Cutout corner radius and padding, an optional vignette, and cutout animation
+- Cursor spotlight: light the area around the pointer instead of, or as well as,
+  the focused window
+- System, light, or dark appearance
+
+**Automation**
+
+- Focus Groups: save intensity, exceptions, per-app, per-display, and spotlight
+  settings, then switch from the menu, a shortcut, the URL scheme, or the CLI
+- Rules: when conditions match, turn dimming on or off, set intensity, apply a
+  group, snooze, or set the spotlight
+- Timed snooze and a recordable global shortcut
+- `forelight://` URL scheme and a `forelight-cli` helper
+
+**Under the hood**
+
+- Accessibility-based window tracking with a CoreGraphics fallback
+- Adaptive refresh that backs off while idle, sleep/wake recovery, and a safe
+  fallback if Accessibility is revoked
+- Optional launch at login, onboarding, About, and JSON settings export/import/reset
+
+## Requirements
+
+- macOS 13 or later
+- Building from source needs a Swift 6.2+ toolchain (a recent Xcode)
+
+## Install
+
+### Download
+
+1. Get the DMG from the [latest release](https://github.com/2baek2/forelight/releases/latest).
+2. Drag Forelight to Applications.
+3. The build is not notarized, so clear the quarantine flag once:
+
+   ```sh
+   xattr -dr com.apple.quarantine /Applications/Forelight.app
+   ```
+
+   Or right-click the app, choose **Open**, then **Open** again.
+4. Grant Accessibility permission when Forelight asks.
+
+### Build from source
 
 ```sh
-swift run Forelight
+git clone https://github.com/2baek2/forelight.git
+cd forelight
+./scripts/build-app.sh     # builds, signs, and launches .build/Forelight.app
 ```
 
-To build and launch the app with a stable signing identity, use:
+`swift run Forelight` also works while developing.
+
+## Usage
+
+### Menu bar panel
+
+Click the icon for the current state, the dim intensity slider, quick toggles,
+and the current app. Right-click for the full menu: enable, snooze, appearance,
+cursor spotlight, focus groups, settings, setup, support, and quit.
+
+### Settings
+
+| Section | What it holds |
+|---|---|
+| General | Enable, global shortcut, appearance, launch at login |
+| Focus | Dim intensity, dim style, window movement, cursor spotlight |
+| Exceptions | Apps kept clear, with a toggle each |
+| Apps | Per-app intensity overrides |
+| Displays | Per-display intensity and dimming on/off |
+| Groups | Saved setups, with an optional shortcut each |
+| Rules | Automatic actions when conditions match |
+| Advanced | Accessibility, setup, About, export/import/reset, support |
+
+### Global shortcut
+
+The default toggle is `⌥⌘F`. Change it under Settings → General: click the field
+and press a new combination. While recording, Delete clears a group's shortcut
+and Escape cancels.
+
+## Automation
+
+### URL scheme
+
+| URL | Effect |
+|---|---|
+| `forelight://toggle` | Toggle dimming |
+| `forelight://enable` / `forelight://disable` | Turn dimming on / off |
+| `forelight://snooze?minutes=30` | Pause dimming |
+| `forelight://resume` | Cancel a snooze |
+| `forelight://intensity?value=0.5` | Set the global intensity |
+| `forelight://appearance?mode=dark` | System, light, or dark |
+| `forelight://spotlight?mode=cursor` | Window, cursor, or both |
+| `forelight://group?name=Coding` | Apply a focus group |
+
+Shortcuts can drive these with an Open URL action.
+
+### CLI
 
 ```sh
+forelight-cli toggle
+forelight-cli snooze 30
+forelight-cli intensity 0.6
+forelight-cli appearance dark
+forelight-cli spotlight cursor
+forelight-cli group Coding
+```
+
+Run it with `swift run forelight-cli …` during development.
+
+### Rules
+
+A rule runs when every condition matches. Conditions: frontmost app, time window,
+power source, external display, idle, microphone in use. Actions: enable, disable,
+set intensity, apply a group, snooze, set spotlight. The last matching rule wins.
+
+For example:
+
+- Snooze for 30 minutes while the microphone is in use.
+- Apply the "Coding" group when Xcode is in front.
+- Lower the intensity on battery.
+
+## Settings and data
+
+- Everything is stored locally in `UserDefaults` for `com.forelight.app`. No
+  account, no telemetry, and no network requests.
+- Export and Import under Settings → Advanced write a JSON snapshot; Reset clears it.
+- Forelight installs nothing else and needs no admin rights.
+
+## Development
+
+```sh
+swift build          # debug build
+swift test           # 47 unit tests (Swift Testing)
 ./scripts/build-app.sh
 ```
 
-Drive Forelight from scripts, Shortcuts, or the terminal:
+Layout:
+
+- `Sources/Forelight` — the app
+- `Sources/ForelightCLI` — the `forelight-cli` helper
+- `Tests/ForelightTests` — unit tests
+- `Resources` — `Info.plist` and the app icon
+- `scripts` — build, icon generation, and release scripts
+
+## Releasing
 
 ```sh
-swift run forelight-cli toggle
-swift run forelight-cli snooze 30
-swift run forelight-cli group Coding
-open "forelight://toggle"
+./scripts/release.sh 0.2.0        # builds dist/Forelight-0.2.0.dmg and .zip
+git tag -a v0.2.0 -m "Forelight 0.2.0"
+git push origin main --tags       # GitHub Actions attaches the DMG and zip
 ```
 
-The URL scheme supports `toggle`, `enable`, `disable`, `snooze?minutes=`, `resume`, `intensity?value=`, `appearance?mode=`, `spotlight?mode=`, and `group?name=`.
+Release builds are ad-hoc signed. To sign (and notarize) with an Apple Developer
+ID, pass `FORELIGHT_SIGNING_IDENTITY="Developer ID Application: …"` to `release.sh`.
 
-## Release without a Developer ID
+## Permissions and troubleshooting
 
-Release builds are ad-hoc signed, so macOS blocks the first launch. Build the
-artifacts with:
+**Accessibility.** Forelight uses macOS Accessibility to track the focused window
+and to power the global shortcut. Without it, Forelight falls back to CoreGraphics
+polling, which is slightly less precise. Everything stays on your Mac.
 
-```sh
-./scripts/release.sh          # uses the version from Resources/Info.plist
-./scripts/release.sh 0.2.0    # or pass a version
-```
-
-This writes `dist/Forelight-<version>.dmg` and `dist/Forelight-<version>.zip`.
-After dragging Forelight to Applications, clear the quarantine flag:
+**"Forelight is damaged" or a Gatekeeper warning.** The build is not notarized, so
+clear the quarantine flag once:
 
 ```sh
 xattr -dr com.apple.quarantine /Applications/Forelight.app
 ```
 
-Or right-click the app, choose **Open**, then **Open** again. Then grant
-Accessibility permission when Forelight asks.
+**Accessibility stops working after a rebuild.** macOS ties the grant to the
+bundle ID and signing identity. Keep the same identity (`./scripts/build-app.sh`
+does this) or re-grant in System Settings → Privacy & Security → Accessibility.
 
-If you later get an Apple Developer ID, pass it to sign and notarize normally:
-`FORELIGHT_SIGNING_IDENTITY="Developer ID Application: …" ./scripts/release.sh`.
+## Contributing
 
-
-macOS Accessibility permission is associated with the app's Bundle ID and code-signing identity, not just the app name. The build script keeps the Bundle ID as `com.forelight.app` and signs with the installed `Local Self-Signed` identity by default, so replacing the app on this Mac keeps the same identity. If you use an Apple Developer signing identity, pass it explicitly:
-
-```sh
-FORELIGHT_SIGNING_IDENTITY="Developer ID Application: Your Name (TEAMID)" ./scripts/build-app.sh
-```
-
-The local identity is machine-specific. For distributing Forelight to other Macs, use the same Apple Developer ID signing identity for every release. Changing the Bundle ID or signing identity, resetting Accessibility permissions, or moving to another Mac can require granting permission again.
-
-Forelight requests macOS Accessibility permission on first launch. This lets it detect real window movement and resizing, hide the dim layer while the window is moving, and restore the cutout when the window settles. If permission is not granted, the app keeps using its fallback window polling.
-
-Click the menu bar icon to open the compact control panel. It shows the current state, provides the continuous intensity slider, and lets you exclude the focused app. Exclusions are stored by Bundle ID and can be reversed with `Include <App>`.
-
-Open `Settings…` for the sidebar settings window. It contains focus behavior, window-movement animation timing, app exceptions, and Accessibility permission status. Under `General`, click the shortcut field and press a new key combination to change the global toggle shortcut; the default is `⌥⌘F`. Under `Exceptions`, the excluded apps are listed with a toggle each; use `+` to add apps and `−` to remove the selected one. Toggling an app off keeps it in the list without excluding it. Under `Advanced`, revisit setup, open the About window, and export, import, or reset your settings.
-
-The app uses public AppKit, Application Services, NSWorkspace, and CoreGraphics APIs. Everything runs locally; nothing leaves your Mac.
+Bug reports and pull requests are welcome. Please open an issue first for larger
+changes.
 
 ## Support
 
-Forelight is free, with no paid tiers or feature locks. If it is useful to you, you can
-[buy me a coffee](https://buymeacoffee.com/s5010749300).
+Forelight is free, with no paid tiers or feature locks. If it is useful to you,
+you can [buy me a coffee](https://buymeacoffee.com/s5010749300).
 
 ## License
 
