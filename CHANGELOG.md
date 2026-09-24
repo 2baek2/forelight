@@ -9,7 +9,8 @@
 - Add a support link in About, Settings → Advanced, and the status menu.
 - Sign releases with a stable certificate when one is available (instead of
   ad-hoc) and add a secure timestamp, so updates keep the Accessibility grant
-  even after the certificate expires.
+  even after the certificate expires. `scripts/make-signing-cert.sh` creates the
+  certificate.
 
 ## 0.1.0
 

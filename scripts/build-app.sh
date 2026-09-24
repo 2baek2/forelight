@@ -6,7 +6,7 @@ APP_PATH="$ROOT_DIR/.build/Forelight.app"
 EXECUTABLE="$ROOT_DIR/.build/out/Products/Debug/Forelight"
 SIGNING_IDENTITY="${FORELIGHT_SIGNING_IDENTITY:-Local Self-Signed}"
 
-if ! security find-identity -v -p codesigning | grep -Fq "\"$SIGNING_IDENTITY\""; then
+if ! security find-identity -p codesigning | grep -Fq "\"$SIGNING_IDENTITY\""; then
     echo "Signing identity not found: $SIGNING_IDENTITY" >&2
     echo "Set FORELIGHT_SIGNING_IDENTITY to an installed signing identity." >&2
     exit 1

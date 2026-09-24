@@ -181,7 +181,7 @@ you prefer a manual install), it falls back to downloading the DMG.
 
 ```sh
 swift build          # debug build
-swift test           # 47 unit tests (Swift Testing)
+swift test           # 50 unit tests (Swift Testing)
 ./scripts/build-app.sh
 ```
 
@@ -212,18 +212,31 @@ designated => identifier "com.forelight.app" and certificate leaf = H"…"
 
 That requirement is identical for every build signed with the same certificate,
 so a user who grants permission once is not asked again after an update. An
-ad-hoc signature changes on every build, which is why it would ask again.
+ad-hoc signature is pinned to the binary's `cdhash` instead, which changes on
+every build, so it asks again.
 
-Create a dedicated certificate once:
+Create the certificate once:
+
+```sh
+./scripts/make-signing-cert.sh Forelight
+```
+
+The script creates a self-signed code-signing certificate (valid 10 years),
+imports it into your login keychain, and trusts it for code signing. To do it by
+hand instead:
 
 1. **키체인 접근** → **인증서 지원** → **인증서 생성…**
    (Keychain Access → Certificate Assistant → Create a Certificate…)
-2. Name it `Forelight`, choose **코드 서명** (Code Signing), and create a
-   self-signed certificate.
-3. On the **인증서 정보** (Certificate Information) screen set **유효 기간(일)**
-   (Validity Period) to a long value such as `3650` days.
-4. Export it as a `.p12` and keep a backup; it is the signing identity for every
-   release.
+2. Name it `Forelight`, set **인증서 유형 / Identity Type** to `자체 서명 루트`
+   (Self Signed Root) and **Certificate Type** to **코드 서명** (Code Signing),
+   then tick "override defaults" and continue.
+3. Give it a serial number and a **유효 기간(일)** (Validity Period) such as
+   `3650`.
+4. Leave **Key Usage** at its defaults, and make sure **Extended Key Usage** is
+   `코드 서명` (Code Signing).
+5. Add it to the **login** keychain. Then double-click it and, under **신뢰**
+   (Trust), set **코드 서명** to **항상 신뢰** (Always Trust), and under the
+   private key's **접근 제어** (Access Control) add `/usr/bin/codesign`.
 
 Then sign releases with it:
 
@@ -233,11 +246,29 @@ FORELIGHT_SIGNING_IDENTITY="Forelight" ./scripts/release.sh 0.2.0
 
 `release.sh` prefers `FORELIGHT_SIGNING_IDENTITY`, then `Local Self-Signed`, then
 ad-hoc, and adds a **secure timestamp** so the signature stays valid even after
-the certificate expires.
+the certificate expires. Verify the identity with:
 
-For GitHub Actions, base64 the `.p12` and add these repository secrets:
-`MACOS_SIGNING_P12`, `MACOS_SIGNING_P12_PASSWORD`, `MACOS_KEYCHAIN_PASSWORD`, and
-`MACOS_SIGNING_IDENTITY`. Without them the workflow signs ad-hoc.
+```sh
+security find-identity -p codesigning | grep Forelight
+```
+
+Note: `-v` hides untrusted self-signed certificates, so leave it off.
+
+The certificate only lives where you sign. Users do not install it, and TCC still
+matches the requirement from the signature. Gatekeeper will still warn on first
+launch because the certificate is not a Developer ID, so the quarantine step
+above remains.
+
+For GitHub Actions, the script also writes the identity to
+`dist/signing/Forelight.p12` (git-ignored) and prints the values to add as
+repository secrets: `MACOS_SIGNING_IDENTITY`, `MACOS_SIGNING_P12` (the base64 of
+that `.p12`), `MACOS_SIGNING_P12_PASSWORD`, and `MACOS_KEYCHAIN_PASSWORD` (any
+throwaway password). The workflow imports it into a temporary keychain and runs
+`security set-key-partition-list`, which is required so `codesign` can use the key
+without prompting. Without the secrets the workflow signs ad-hoc.
+
+Use the *same* `.p12` in CI as locally. A different certificate means a different
+signature, and users are asked for Accessibility again.
 
 Note: changing the certificate (or shipping an ad-hoc build) changes the
 signature, and users will be asked to grant Accessibility again.

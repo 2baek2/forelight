@@ -44,7 +44,7 @@ cp "$EXECUTABLE" "$APP_PATH/Contents/MacOS/$APP_NAME"
 
 DEFAULT_IDENTITY="Local Self-Signed"
 IDENTITY="${FORELIGHT_SIGNING_IDENTITY:-$DEFAULT_IDENTITY}"
-AVAILABLE_IDENTITIES="$(security find-identity -v -p codesigning 2>/dev/null || true)"
+AVAILABLE_IDENTITIES="$(security find-identity -p codesigning 2>/dev/null || true)"
 
 if [[ -n "$IDENTITY" ]] && [[ "$AVAILABLE_IDENTITIES" == *"\"$IDENTITY\""* ]]; then
     echo "Signing with: $IDENTITY"
@@ -52,7 +52,10 @@ if [[ -n "$IDENTITY" ]] && [[ "$AVAILABLE_IDENTITIES" == *"\"$IDENTITY\""* ]]; t
     # so a self-signed certificate that lapses does not invalidate installs.
     if ! codesign --force --timestamp --sign "$IDENTITY" "$APP_PATH"; then
         echo "Timestamping failed (offline?); signing without a timestamp."
-        codesign --force --sign "$IDENTITY" "$APP_PATH"
+        if ! codesign --force --sign "$IDENTITY" "$APP_PATH"; then
+            echo "Signing with \"$IDENTITY\" failed; signing ad-hoc."
+            codesign --force --sign - "$APP_PATH"
+        fi
     fi
 else
     echo "Signing identity \"$IDENTITY\" not found; signing ad-hoc."
