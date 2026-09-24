@@ -244,9 +244,10 @@ Then sign releases with it:
 FORELIGHT_SIGNING_IDENTITY="Forelight" ./scripts/release.sh 0.2.0
 ```
 
-`release.sh` prefers `FORELIGHT_SIGNING_IDENTITY`, then `Local Self-Signed`, then
-ad-hoc, and adds a **secure timestamp** so the signature stays valid even after
-the certificate expires. Verify the identity with:
+`release.sh` picks an identity in this order: `FORELIGHT_SIGNING_IDENTITY`, a
+certificate named `Forelight`, then `Local Self-Signed`, then ad-hoc. It adds a
+**secure timestamp** so the signature stays valid even after the certificate
+expires. Verify the identity with:
 
 ```sh
 security find-identity -p codesigning | grep Forelight
@@ -259,7 +260,7 @@ matches the requirement from the signature. Gatekeeper will still warn on first
 launch because the certificate is not a Developer ID, so the quarantine step
 above remains.
 
-For GitHub Actions, the script also writes the identity to
+For GitHub Actions, the script writes the identity to
 `dist/signing/Forelight.p12` (git-ignored) and prints the values to add as
 repository secrets: `MACOS_SIGNING_IDENTITY`, `MACOS_SIGNING_P12` (the base64 of
 that `.p12`), `MACOS_SIGNING_P12_PASSWORD`, and `MACOS_KEYCHAIN_PASSWORD` (any
@@ -267,11 +268,12 @@ throwaway password). The workflow imports it into a temporary keychain and runs
 `security set-key-partition-list`, which is required so `codesign` can use the key
 without prompting. Without the secrets the workflow signs ad-hoc.
 
-Use the *same* `.p12` in CI as locally. A different certificate means a different
-signature, and users are asked for Accessibility again.
+If the certificate already exists (created by hand), export it once from Keychain
+Access: right-click it, choose **내보내기…** (Export…), and save the `.p12`.
 
-Note: changing the certificate (or shipping an ad-hoc build) changes the
-signature, and users will be asked to grant Accessibility again.
+Use the *same* `.p12` in CI as locally. Changing the certificate, or shipping an
+ad-hoc build, changes the signature, and users are asked to grant Accessibility
+again.
 
 ## Permissions and troubleshooting
 

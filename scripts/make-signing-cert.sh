@@ -27,55 +27,75 @@ EXPORT_P12="$EXPORT_DIR/$NAME.p12"
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "$WORK_DIR"' EXIT
 
+P12_PASSWORD="${FORELIGHT_P12_PASSWORD:-}"
+
+print_usage_help() {
+    echo
+    echo "Sign local releases with:"
+    echo "  FORELIGHT_SIGNING_IDENTITY=\"$NAME\" ./scripts/release.sh"
+    echo "  (release.sh picks \"$NAME\" automatically when it is installed)"
+    echo
+    echo "For GitHub Actions secrets:"
+    echo "  MACOS_SIGNING_IDENTITY     = $NAME"
+    echo "  MACOS_SIGNING_P12          = base64 of the .p12"
+    echo "  MACOS_SIGNING_P12_PASSWORD = the .p12 password"
+    echo "  MACOS_KEYCHAIN_PASSWORD    = any throwaway password"
+    echo
+    echo "Keep the .p12 safe. Losing it means the next release has a new identity"
+    echo "and users must grant Accessibility again."
+}
+
 if security find-certificate -c "$NAME" >/dev/null 2>&1; then
-    echo "A certificate named \"$NAME\" already exists in your keychains." >&2
-    echo "Reusing it keeps the Accessibility grant; use a different name to make" >&2
-    echo "a new one, or delete the old one first if it is really unused." >&2
-    exit 1
+    echo "Certificate \"$NAME\" already exists; reusing it."
+    security find-certificate -c "$NAME" -p > "$WORK_DIR/cert.pem"
+
+    if ! security verify-cert -c "$WORK_DIR/cert.pem" -p codeSign >/dev/null 2>&1; then
+        echo "Trusting it for code signing (macOS may ask for your password)…"
+        security add-trusted-cert -r trustRoot -p codeSign -k "$KEYCHAIN" "$WORK_DIR/cert.pem"
+    fi
+
+    if [[ -f "$EXPORT_P12" ]]; then
+        echo "Reusing exported identity: $EXPORT_P12"
+    else
+        echo
+        echo "It has no exported .p12 yet. Export it once for CI secrets:"
+        echo "  키체인 접근 → login → 인증서에서 \"$NAME\" 우클릭 → 내보내기…"
+        echo "  (Keychain Access → login → export \"$NAME\" as .p12)"
+        echo "  then: mkdir -p \"$(dirname "$EXPORT_P12")\" && mv ~/Desktop/*.p12 \"$EXPORT_P12\""
+    fi
+
+    print_usage_help
+else
+    P12_PASSWORD="${FORELIGHT_P12_PASSWORD:-$(openssl rand -hex 16)}"
+
+    echo "Creating a self-signed code-signing certificate: $NAME"
+    openssl req -x509 -newkey rsa:2048 -sha256 -days 3650 -nodes \
+        -keyout "$WORK_DIR/key.pem" \
+        -out "$WORK_DIR/cert.pem" \
+        -subj "/CN=$NAME" \
+        -addext "basicConstraints=critical,CA:false" \
+        -addext "keyUsage=critical,digitalSignature" \
+        -addext "extendedKeyUsage=critical,codeSigning"
+
+    openssl pkcs12 -export \
+        -inkey "$WORK_DIR/key.pem" \
+        -in "$WORK_DIR/cert.pem" \
+        -name "$NAME" \
+        -out "$WORK_DIR/$NAME.p12" \
+        -passout "pass:$P12_PASSWORD"
+
+    echo "Importing into the login keychain…"
+    security import "$WORK_DIR/$NAME.p12" -k "$KEYCHAIN" -P "$P12_PASSWORD" -T /usr/bin/codesign
+
+    echo "Trusting it for code signing (macOS may ask for your password)…"
+    security add-trusted-cert -r trustRoot -p codeSign -k "$KEYCHAIN" "$WORK_DIR/cert.pem"
+
+    mkdir -p "$EXPORT_DIR"
+    cp "$WORK_DIR/$NAME.p12" "$EXPORT_P12"
+    echo
+    echo "Exported identity: $EXPORT_P12 (git-ignored)"
+    print_usage_help
+    echo
+    echo "The .p12 password is: $P12_PASSWORD"
+    exit 0
 fi
-
-P12_PASSWORD="${FORELIGHT_P12_PASSWORD:-$(openssl rand -hex 16)}"
-
-echo "Creating a self-signed code-signing certificate: $NAME"
-openssl req -x509 -newkey rsa:2048 -sha256 -days 3650 -nodes \
-    -keyout "$WORK_DIR/key.pem" \
-    -out "$WORK_DIR/cert.pem" \
-    -subj "/CN=$NAME" \
-    -addext "basicConstraints=critical,CA:false" \
-    -addext "keyUsage=critical,digitalSignature" \
-    -addext "extendedKeyUsage=critical,codeSigning"
-
-openssl pkcs12 -export \
-    -inkey "$WORK_DIR/key.pem" \
-    -in "$WORK_DIR/cert.pem" \
-    -name "$NAME" \
-    -out "$WORK_DIR/$NAME.p12" \
-    -passout "pass:$P12_PASSWORD"
-
-echo "Importing into the login keychain…"
-security import "$WORK_DIR/$NAME.p12" -k "$KEYCHAIN" -P "$P12_PASSWORD" -T /usr/bin/codesign
-
-echo "Trusting it for code signing (macOS may ask for your password)…"
-security add-trusted-cert -r trustRoot -p codeSign -k "$KEYCHAIN" "$WORK_DIR/cert.pem"
-
-mkdir -p "$EXPORT_DIR"
-cp "$WORK_DIR/$NAME.p12" "$EXPORT_P12"
-
-echo
-echo "Done."
-echo
-echo "Verify with:"
-echo "  security find-identity -p codesigning | grep \"$NAME\""
-echo
-echo "Sign local releases with:"
-echo "  FORELIGHT_SIGNING_IDENTITY=\"$NAME\" ./scripts/release.sh"
-echo
-echo "For GitHub Actions secrets:"
-echo "  MACOS_SIGNING_IDENTITY   = $NAME"
-echo "  MACOS_SIGNING_P12        = $(echo "base64 -i \"$EXPORT_P12\" | pbcopy")"
-echo "  MACOS_SIGNING_P12_PASSWORD = $P12_PASSWORD"
-echo "  MACOS_KEYCHAIN_PASSWORD  = any throwaway password (e.g. \`openssl rand -hex 16\`)"
-echo
-echo "The .p12 is at $EXPORT_P12 (git-ignored). Back it up somewhere safe:"
-echo "losing it means the next release has a new identity and users must grant"
-echo "Accessibility again."

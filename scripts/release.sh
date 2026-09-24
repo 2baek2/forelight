@@ -42,24 +42,39 @@ cp "$EXECUTABLE" "$APP_PATH/Contents/MacOS/$APP_NAME"
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$APP_PATH/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $VERSION" "$APP_PATH/Contents/Info.plist"
 
-DEFAULT_IDENTITY="Local Self-Signed"
-IDENTITY="${FORELIGHT_SIGNING_IDENTITY:-$DEFAULT_IDENTITY}"
+# Prefer an explicit identity, then a dedicated "Forelight" certificate, then the
+# generic local one, and finally ad-hoc. Signing every release with the same
+# certificate is what keeps the Accessibility grant across updates.
 AVAILABLE_IDENTITIES="$(security find-identity -p codesigning 2>/dev/null || true)"
+CANDIDATES=()
+if [[ -n "${FORELIGHT_SIGNING_IDENTITY:-}" ]]; then
+    CANDIDATES+=("$FORELIGHT_SIGNING_IDENTITY")
+fi
+CANDIDATES+=("Forelight" "Local Self-Signed")
 
-if [[ -n "$IDENTITY" ]] && [[ "$AVAILABLE_IDENTITIES" == *"\"$IDENTITY\""* ]]; then
+IDENTITY=""
+for candidate in "${CANDIDATES[@]}"; do
+    if [[ "$AVAILABLE_IDENTITIES" == *"\"$candidate\""* ]]; then
+        IDENTITY="$candidate"
+        break
+    fi
+done
+
+if [[ -n "$IDENTITY" ]]; then
     echo "Signing with: $IDENTITY"
     # A secure timestamp keeps the signature valid after the certificate expires,
     # so a self-signed certificate that lapses does not invalidate installs.
     if ! codesign --force --timestamp --sign "$IDENTITY" "$APP_PATH"; then
         echo "Timestamping failed (offline?); signing without a timestamp."
         if ! codesign --force --sign "$IDENTITY" "$APP_PATH"; then
-            echo "Signing with \"$IDENTITY\" failed; signing ad-hoc."
+            echo "Signing with \"$IDENTITY\" failed; signing ad-hoc." >&2
             codesign --force --sign - "$APP_PATH"
         fi
     fi
 else
-    echo "Signing identity \"$IDENTITY\" not found; signing ad-hoc."
-    echo "Tip: a stable certificate keeps the Accessibility grant across updates."
+    echo "No signing identity found; signing ad-hoc." >&2
+    echo "Ad-hoc builds lose the Accessibility grant on every update." >&2
+    echo "Run ./scripts/make-signing-cert.sh once to fix that." >&2
     codesign --force --sign - "$APP_PATH"
 fi
 codesign --verify --strict "$APP_PATH"
