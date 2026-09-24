@@ -354,6 +354,9 @@ struct SettingsView: View {
     }
 
     private var updateSubtitle: String {
+        if model.isInstallingUpdate {
+            return "Installing the update…"
+        }
         if let version = model.availableUpdateVersion {
             return "Version \(version) is available"
         }
@@ -1026,7 +1029,15 @@ struct SettingsView: View {
                         subtitle: updateSubtitle,
                         systemImage: "arrow.triangle.2.circlepath"
                     ) {
-                        if model.isCheckingForUpdates {
+                        if model.isInstallingUpdate {
+                            HStack(spacing: 6) {
+                                ProgressView()
+                                    .controlSize(.small)
+                                Text("Installing…")
+                                    .font(.caption)
+                                    .foregroundStyle(ForelightStyle.muted)
+                            }
+                        } else if model.isCheckingForUpdates {
                             ProgressView()
                                 .controlSize(.small)
                         } else {

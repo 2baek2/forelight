@@ -3,8 +3,9 @@
 ## Unreleased
 
 - Check for updates from the GitHub releases, from Settings → Advanced or the
-  status menu, with an optional daily check on launch. A newer version offers a
-  DMG download that opens for a manual install.
+  status menu, with an optional daily check on launch. A newer version installs
+  in place (download, replace, relaunch) and falls back to a DMG download when
+  the app cannot be replaced.
 - Add a support link in About, Settings → Advanced, and the status menu.
 
 ## 0.1.0

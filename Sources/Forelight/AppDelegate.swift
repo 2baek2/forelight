@@ -20,6 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var shortcut: KeyCombo
     private var autoCheckForUpdates: Bool
     private var isCheckingForUpdates = false
+    private var isInstallingUpdate = false
     private var availableUpdateVersion: String?
     private let shortcutGate = ShortcutGate()
     private var activationObserver: NSObjectProtocol?
@@ -75,6 +76,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             rules: controller.rules,
             activeRuleID: nil,
             isCheckingForUpdates: false,
+            isInstallingUpdate: false,
             availableUpdateVersion: nil,
             autoCheckForUpdates: autoCheckForUpdates
         )
@@ -544,6 +546,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         model.rules = overlayController.rules
         model.activeRuleID = overlayController.activeRuleID
         model.isCheckingForUpdates = isCheckingForUpdates
+        model.isInstallingUpdate = isInstallingUpdate
         model.availableUpdateVersion = availableUpdateVersion
         model.autoCheckForUpdates = autoCheckForUpdates
         model.displays = NSScreen.screens.compactMap { screen -> DisplayIntensityEntry? in
@@ -870,28 +873,65 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     private func presentUpdateAlert(_ release: ReleaseInfo) {
+        let canInstall = release.zipURL != nil && UpdateInstaller.canInstall(into: Bundle.main.bundleURL)
+
         let alert = NSAlert()
         alert.messageText = "Forelight \(release.version) is available"
         var informative = "You are running \(Self.appShortVersion)."
+        if canInstall {
+            informative += " Forelight can install it for you and relaunch."
+        }
         if let notes = release.notes, !notes.isEmpty {
             informative += "\n\n" + notes.prefix(600)
         }
         alert.informativeText = informative
-        alert.addButton(withTitle: release.dmgURL != nil ? "Download" : "Open Release")
+
+        let primaryTitle = canInstall
+            ? "Install Update"
+            : (release.dmgURL != nil ? "Download" : "Open Release")
+        alert.addButton(withTitle: primaryTitle)
         alert.addButton(withTitle: "Release Notes")
         alert.addButton(withTitle: "Later")
 
         switch alert.runModal() {
         case .alertFirstButtonReturn:
+            installUpdate(release)
+        case .alertSecondButtonReturn:
+            NSWorkspace.shared.open(release.pageURL)
+        default:
+            break
+        }
+    }
+
+    /// Replaces the app bundle in place and relaunches. Falls back to the manual
+    /// download when the bundle cannot be written (for example a read-only
+    /// location or a standard user account).
+    private func installUpdate(_ release: ReleaseInfo) {
+        let target = Bundle.main.bundleURL
+
+        guard let zipURL = release.zipURL, UpdateInstaller.canInstall(into: target) else {
             if let dmgURL = release.dmgURL {
                 downloadAndOpen(dmgURL)
             } else {
                 NSWorkspace.shared.open(release.pageURL)
             }
-        case .alertSecondButtonReturn:
-            NSWorkspace.shared.open(release.pageURL)
-        default:
-            break
+            return
+        }
+
+        guard !isInstallingUpdate else { return }
+        isInstallingUpdate = true
+        syncModel()
+
+        Task { @MainActor in
+            do {
+                let newApp = try await UpdateInstaller.download(zipURL)
+                try UpdateInstaller.installAndRelaunch(newApp: newApp, target: target)
+                NSApp.terminate(nil)
+            } catch {
+                isInstallingUpdate = false
+                syncModel()
+                presentSimpleAlert(title: "Update Failed", message: error.localizedDescription)
+            }
         }
     }
 

@@ -77,6 +77,7 @@ final class ForelightModel: ObservableObject {
     @Published var rules: [Rule]
     @Published var activeRuleID: UUID?
     @Published var isCheckingForUpdates: Bool
+    @Published var isInstallingUpdate: Bool
     @Published var availableUpdateVersion: String?
     @Published var autoCheckForUpdates: Bool
 
@@ -115,6 +116,7 @@ final class ForelightModel: ObservableObject {
         rules: [Rule],
         activeRuleID: UUID?,
         isCheckingForUpdates: Bool,
+        isInstallingUpdate: Bool,
         availableUpdateVersion: String?,
         autoCheckForUpdates: Bool
     ) {
@@ -152,6 +154,7 @@ final class ForelightModel: ObservableObject {
         self.rules = rules
         self.activeRuleID = activeRuleID
         self.isCheckingForUpdates = isCheckingForUpdates
+        self.isInstallingUpdate = isInstallingUpdate
         self.availableUpdateVersion = availableUpdateVersion
         self.autoCheckForUpdates = autoCheckForUpdates
     }

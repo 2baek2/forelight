@@ -3,6 +3,7 @@ import Foundation
 struct ReleaseInfo: Equatable, Sendable {
     var version: String
     var pageURL: URL
+    var zipURL: URL?
     var dmgURL: URL?
     var notes: String?
 }
@@ -11,12 +12,14 @@ enum UpdateError: LocalizedError {
     case badResponse
     case invalidVersion
     case noAsset
+    case extractionFailed
 
     var errorDescription: String? {
         switch self {
         case .badResponse: return "The update server returned an unexpected response."
         case .invalidVersion: return "The latest release has an unreadable version."
         case .noAsset: return "The latest release has no download."
+        case .extractionFailed: return "The downloaded update could not be unpacked."
         }
     }
 }
@@ -48,18 +51,23 @@ enum UpdateChecker {
         }
 
         var dmgURL: URL?
+        var zipURL: URL?
         for asset in (json["assets"] as? [[String: Any]] ?? []) {
-            guard let name = asset["name"] as? String, name.hasSuffix(".dmg"),
+            guard let name = asset["name"] as? String,
                   let url = (asset["browser_download_url"] as? String).flatMap(URL.init(string:)) else {
                 continue
             }
-            dmgURL = url
-            break
+            if name.hasSuffix(".dmg"), dmgURL == nil {
+                dmgURL = url
+            } else if name.hasSuffix(".zip"), zipURL == nil {
+                zipURL = url
+            }
         }
 
         return ReleaseInfo(
             version: version,
             pageURL: pageURL,
+            zipURL: zipURL,
             dmgURL: dmgURL,
             notes: json["body"] as? String
         )

@@ -165,9 +165,9 @@ For example:
 
 Forelight checks the public GitHub releases. Use **Check for Updates…** in the
 status menu or Settings → Advanced, or let it check once a day on launch. When a
-newer version exists you can download the DMG and open it, then drag it to
-Applications. Updates are not installed in place because the builds are not
-notarized.
+newer version exists, choose **Install Update** and Forelight downloads it,
+replaces itself, and relaunches. If the app lives somewhere it cannot write (or
+you prefer a manual install), it falls back to downloading the DMG.
 
 ## Settings and data
 
