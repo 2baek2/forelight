@@ -1,5 +1,9 @@
 # Forelight
 
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support-FFDD00?logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/s5010749300)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+![Platform](https://img.shields.io/badge/platform-macOS%2013%2B-lightgrey)
+
 Forelight is a small macOS menu bar utility that keeps the frontmost window clear and fades everything else.
 
 If it helps you, you can [buy me a coffee](https://buymeacoffee.com/s5010749300). Forelight is free and has no paid tiers.
