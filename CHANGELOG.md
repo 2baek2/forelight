@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.1
 
 - Check for updates from the GitHub releases, from Settings → Advanced or the
   status menu, with an optional daily check on launch. A newer version installs
