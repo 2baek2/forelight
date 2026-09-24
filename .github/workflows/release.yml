@@ -16,7 +16,30 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Optional: a stable code-signing certificate keeps the Accessibility grant
+      # across updates. Without the secret the build falls back to an ad-hoc
+      # signature and users re-grant permission after each update.
+      - name: Import signing certificate
+        env:
+          P12: ${{ secrets.MACOS_SIGNING_P12 }}
+          P12_PASSWORD: ${{ secrets.MACOS_SIGNING_P12_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.MACOS_KEYCHAIN_PASSWORD }}
+        run: |
+          if [ -z "$P12" ]; then
+            echo "No signing certificate provided; the build will be signed ad-hoc."
+            exit 0
+          fi
+          echo "$P12" | base64 --decode > signing.p12
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security import signing.p12 -k build.keychain -P "$P12_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" build.keychain >/dev/null
+          rm signing.p12
+
       - name: Build DMG and zip
+        env:
+          FORELIGHT_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
         run: ./scripts/release.sh "${GITHUB_REF_NAME#v}"
 
       - name: Publish release assets

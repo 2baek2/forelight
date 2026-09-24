@@ -42,12 +42,16 @@ cp "$EXECUTABLE" "$APP_PATH/Contents/MacOS/$APP_NAME"
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$APP_PATH/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $VERSION" "$APP_PATH/Contents/Info.plist"
 
-IDENTITY="${FORELIGHT_SIGNING_IDENTITY:-}"
-if [[ -n "$IDENTITY" ]] && security find-identity -v -p codesigning | grep -Fq "\"$IDENTITY\""; then
+DEFAULT_IDENTITY="Local Self-Signed"
+IDENTITY="${FORELIGHT_SIGNING_IDENTITY:-$DEFAULT_IDENTITY}"
+AVAILABLE_IDENTITIES="$(security find-identity -v -p codesigning 2>/dev/null || true)"
+
+if [[ -n "$IDENTITY" ]] && [[ "$AVAILABLE_IDENTITIES" == *"\"$IDENTITY\""* ]]; then
     echo "Signing with: $IDENTITY"
     codesign --force --sign "$IDENTITY" "$APP_PATH"
 else
-    echo "No Developer ID identity found; signing ad-hoc."
+    echo "Signing identity \"$IDENTITY\" not found; signing ad-hoc."
+    echo "Tip: a stable certificate keeps the Accessibility grant across updates."
     codesign --force --sign - "$APP_PATH"
 fi
 codesign --verify --strict "$APP_PATH"

@@ -7,6 +7,8 @@
   in place (download, replace, relaunch) and falls back to a DMG download when
   the app cannot be replaced.
 - Add a support link in About, Settings → Advanced, and the status menu.
+- Sign releases with a stable certificate when one is available (instead of
+  ad-hoc), so updates keep the Accessibility grant.
 
 ## 0.1.0
 

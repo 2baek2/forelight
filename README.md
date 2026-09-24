@@ -201,8 +201,17 @@ git tag -a v0.2.0 -m "Forelight 0.2.0"
 git push origin main --tags       # GitHub Actions attaches the DMG and zip
 ```
 
-Release builds are ad-hoc signed. To sign (and notarize) with an Apple Developer
-ID, pass `FORELIGHT_SIGNING_IDENTITY="Developer ID Application: …"` to `release.sh`.
+`release.sh` signs with `Local Self-Signed` when that identity exists, otherwise
+ad-hoc. A stable certificate keeps the Accessibility grant across updates, so the
+in-app updater does not ask for permission again after an update. To use a
+different identity (a dedicated `Forelight` certificate, or a Developer ID), pass
+`FORELIGHT_SIGNING_IDENTITY="…"`.
+
+For GitHub Actions, export the certificate as a `.p12`, base64 it, and add these
+repository secrets: `MACOS_SIGNING_P12`, `MACOS_SIGNING_P12_PASSWORD`,
+`MACOS_KEYCHAIN_PASSWORD`, and `MACOS_SIGNING_IDENTITY`. Without them the workflow
+signs ad-hoc. To create the certificate: Keychain Access → Certificate Assistant
+→ Create a Certificate…, type **Code Signing**, for example named `Forelight`.
 
 ## Permissions and troubleshooting
 
@@ -218,8 +227,13 @@ xattr -dr com.apple.quarantine /Applications/Forelight.app
 ```
 
 **Accessibility stops working after a rebuild.** macOS ties the grant to the
-bundle ID and signing identity. Keep the same identity (`./scripts/build-app.sh`
-does this) or re-grant in System Settings → Privacy & Security → Accessibility.
+bundle ID and code signature. Keep the same signing identity
+(`./scripts/build-app.sh` and `./scripts/release.sh` do this when a certificate is
+available) or re-grant in System Settings → Privacy & Security → Accessibility.
+
+**An update asks for Accessibility again.** This happens when releases are signed
+ad-hoc, because the signature changes on every build. Sign with a stable
+certificate (see [Releasing](#releasing)) to keep the grant across updates.
 
 ## Contributing
 
