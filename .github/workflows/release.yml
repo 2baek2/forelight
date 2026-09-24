@@ -25,3 +25,13 @@ jobs:
           files: |
             dist/*.dmg
             dist/*.zip
+          body: |
+            Download the DMG, drag Forelight to Applications, then clear the
+            quarantine flag (the build is not notarized):
+
+            ```sh
+            xattr -dr com.apple.quarantine /Applications/Forelight.app
+            ```
+
+            Or right-click the app, choose **Open**, then **Open** again. Grant
+            Accessibility permission when Forelight asks.
