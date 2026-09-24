@@ -24,8 +24,9 @@ enum UpdateError: LocalizedError {
     }
 }
 
-/// Checks the GitHub releases of Forelight for a newer version. Update builds
-/// are ad-hoc signed, so this only offers the download instead of installing it.
+/// Checks the GitHub releases of Forelight for a newer version. Releases are
+/// signed with a stable certificate, so an update can replace the bundle in
+/// place (see `UpdateInstaller`) instead of only offering a download.
 enum UpdateChecker {
     static let repository = "2baek2/forelight"
 
