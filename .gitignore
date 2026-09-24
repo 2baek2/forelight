@@ -1,4 +1,6 @@
 .build/
 DerivedData/
 dist/
+.codegraph
+.omo/
 .DS_Store
