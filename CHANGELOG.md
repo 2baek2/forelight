@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.2
 
 - Fix the status menu popover opening off-screen on multi-display setups. The
   popover is now sized from its SwiftUI content before it is shown, because
