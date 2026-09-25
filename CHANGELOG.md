@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Fix the status menu popover opening off-screen on multi-display setups. The
+  popover is now sized from its SwiftUI content before it is shown, because
+  `NSHostingController` publishes its size only after positioning, which threw
+  the anchor off by about 140 points when the menu bar sat at the top edge of the
+  display arrangement.
+
 ## 0.1.1
 
 - Check for updates from the GitHub releases, from Settings → Advanced or the

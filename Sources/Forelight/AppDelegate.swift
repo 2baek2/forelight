@@ -10,6 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private let model: ForelightModel
     private var statusItem: NSStatusItem!
     private var popover = NSPopover()
+    private var menuHostingController: NSHostingController<MenuPanelView>?
     private var settingsWindow: NSWindow?
     private var settingsHostingController: NSHostingController<SettingsView>?
     private var aboutWindow: NSWindow?
@@ -122,7 +123,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         popover.behavior = .transient
         popover.animates = true
         popover.appearance = appearanceMode.nsAppearance
-        popover.contentViewController = NSHostingController(
+        let hosting = NSHostingController(
             rootView: MenuPanelView(
                 model: model,
                 onToggleEnabled: { [weak self] value in self?.setEnabled(value) },
@@ -137,6 +138,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 onQuit: { NSApplication.shared.terminate(nil) }
             )
         )
+        // Keep the controller's preferred size in step with the SwiftUI content
+        // so the popover can be sized before it is positioned; see togglePopover().
+        hosting.sizingOptions = [.intrinsicContentSize]
+        menuHostingController = hosting
+        popover.contentViewController = hosting
     }
 
     private func configureNotifications() {
@@ -506,6 +512,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if popover.isShown {
             popover.performClose(nil)
             return
+        }
+
+        // NSHostingController only publishes its preferredContentSize after the
+        // popover is shown, so NSPopover would otherwise position itself using a
+        // stale size. When the status item is in a menu bar that sits at the top
+        // edge of the display arrangement, that pushes the popover off-screen.
+        if let hosting = menuHostingController {
+            hosting.view.layoutSubtreeIfNeeded()
+            hosting.preferredContentSize = hosting.view.fittingSize
         }
 
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)

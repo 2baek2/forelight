@@ -4,12 +4,17 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 APP_PATH="$ROOT_DIR/.build/Forelight.app"
 EXECUTABLE="$ROOT_DIR/.build/out/Products/Debug/Forelight"
-SIGNING_IDENTITY="${FORELIGHT_SIGNING_IDENTITY:-Local Self-Signed}"
+SIGNING_IDENTITY=""
+for candidate in "${FORELIGHT_SIGNING_IDENTITY:-}" "Forelight" "Local Self-Signed"; do
+    if [[ -n "$candidate" ]] && security find-identity -p codesigning | grep -Fq "\"$candidate\""; then
+        SIGNING_IDENTITY="$candidate"
+        break
+    fi
+done
 
-if ! security find-identity -p codesigning | grep -Fq "\"$SIGNING_IDENTITY\""; then
-    echo "Signing identity not found: $SIGNING_IDENTITY" >&2
-    echo "Set FORELIGHT_SIGNING_IDENTITY to an installed signing identity." >&2
-    exit 1
+if [[ -z "$SIGNING_IDENTITY" ]]; then
+    echo "No code signing identity found; signing ad-hoc." >&2
+    SIGNING_IDENTITY="-"
 fi
 
 swift build --package-path "$ROOT_DIR"
